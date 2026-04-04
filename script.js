@@ -66,7 +66,16 @@ function clickTransactionName(name) {
   openTransfer(target.id);
 }
 
+function isNearBottom(el, threshold = 40) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
+}
+
+function scrollToBottom(el) {
+  el.scrollTop = el.scrollHeight;
+}
+
 function refreshTransactions() {
+  const wasNearBottom = isNearBottom(elements.transactionsList);
   const query = elements.txFilter.value.trim().toLowerCase();
   elements.transactionsList.innerHTML = '';
 
@@ -74,7 +83,7 @@ function refreshTransactions() {
     const text = tx.text || '';
     const names = `${tx.from || ''} ${tx.to || ''}`;
     return !query || text.toLowerCase().includes(query) || names.toLowerCase().includes(query);
-  });
+  }).reverse();
 
   if (filtered.length === 0) {
     const placeholder = document.createElement('p');
@@ -114,9 +123,11 @@ function refreshTransactions() {
 
     elements.transactionsList.appendChild(p);
   });
+  if (wasNearBottom) scrollToBottom(elements.transactionsList);
 }
 
 function refreshChat() {
+  const wasNearBottom = isNearBottom(elements.chatLog);
   const query = elements.chatFilter.value.trim().toLowerCase();
   elements.chatLog.innerHTML = '';
   gameState.chatRooms[activeChatRoom].filter(msg => !query || msg.text.toLowerCase().includes(query) || msg.from.toLowerCase().includes(query)).forEach(msg => {
@@ -137,6 +148,7 @@ function refreshChat() {
     p.appendChild(document.createTextNode(msg.text));
     elements.chatLog.appendChild(p);
   });
+  if (wasNearBottom) scrollToBottom(elements.chatLog);
 }
 
 function showAuth(show, message = '') {
