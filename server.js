@@ -21,15 +21,16 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-function createPlayer(name, initialFlark = 50, initialPotential = 0) {
+function createPlayer(name, initialFlark = 10, initialPotential = 0) {
   const id = Math.random().toString(36).slice(2, 10);
-  const player = { id, name, flark: initialFlark, potential: initialPotential };
+  const potential = state.players.length < 20 ? 20 : initialPotential || 0;
+  const player = { id, name, flark: initialFlark, potential };
   state.players.push(player);
   return player;
 }
 
 function addTransaction(from, to, amount) {
-  const text = `${from} gave ${to} ${amount.toFixed(1)} Flark (to Potential)`;
+  const text = `${from} gave ${to} ${amount.toFixed(1)} Glark (to Potential)`;
   state.transactions.unshift({ from, to, amount: Number(amount.toFixed(1)), text, time: Date.now() });
   if (state.transactions.length > 200) state.transactions.pop();
 }
@@ -123,9 +124,8 @@ io.on('connection', socket => {
     const from = resolvePlayerById(fromId);
     const to = resolvePlayerById(toId);
     const amountN = Number(amount);
-    if (!from || !to || from.id === to.id || !Number.isFinite(amountN) || amountN <= 0) return;
+    if (!from || !to || !Number.isFinite(amountN) || amountN <= 0) return;
     if (from.flark < amountN) return;
-    if (from.flark - amountN < 10) return;
     from.flark -= amountN;
     to.potential += amountN;
     addTransaction(from.name, to.name, amountN);
@@ -171,4 +171,4 @@ createPlayer('Bob', 10, 0);
 createPlayer('Carmen', 10, 0);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Flark server running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Glark server running on http://localhost:${PORT}`));

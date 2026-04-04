@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Flark Exchange</title>
+  <title>Glark Exchange</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="authContainer" class="auth-box">
-    <h2>Flark Exchange Login</h2>
+    <h2>Glark Exchange Login</h2>
     <div class="auth-row">
       <label>Username <input id="authUsername" type="text" /></label>
     </div>
@@ -24,18 +24,19 @@
   <div id="gameContainer" class="hidden">
     <div class="container">
       <header>
-        <h1>Flark Exchange</h1>
+        <h1>Glark Exchange</h1>
       </header>
 
     <main>
       <aside class="status">
         <div class="stat-block">
-          <span>Flark</span>
+          <span>Glark</span>
           <strong id="flarkValue">0</strong>
         </div>
-        <div class="stat-block potential" id="potentialBlock" title="Click to convert potential to flark">
+        <div class="stat-block potential" id="potentialBlock" title="Click to buy Potential with your Glark">
           <span>Potential</span>
           <strong id="potentialValue">0</strong>
+          <button id="convertPotentialBtn" class="small-button">Convert</button>
         </div>
         <div class="stat-block">
           <span>Multiplier</span>
@@ -77,7 +78,7 @@
 
   <div id="transferModal" class="modal hidden">
     <div class="modal-content">
-      <h3>Send Flark to</h3>
+      <h3>Send Glark to</h3>
       <p id="transferTarget"></p>
       <input id="transferAmount" type="number" min="1" placeholder="Amount" />
       <div class="modal-actions">

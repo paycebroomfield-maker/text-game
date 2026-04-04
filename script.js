@@ -17,6 +17,7 @@ const elements = {
   potentialValue: document.getElementById('potentialValue'),
   multiplierValue: document.getElementById('multiplierValue'),
   potentialBlock: document.getElementById('potentialBlock'),
+  convertPotentialBtn: document.getElementById('convertPotentialBtn'),
   transactionsList: document.getElementById('transactionsList'),
   txFilter: document.getElementById('txFilter'),
   chatFilter: document.getElementById('chatFilter'),
@@ -60,10 +61,6 @@ function clickTransactionName(name) {
   const target = gameState.players.find(p => p.name === name);
   if (!target) {
     alert('Player not found in game yet.');
-    return;
-  }
-  if (target.id === currentPlayerId) {
-    alert('You cannot send to yourself.');
     return;
   }
   openTransfer(target.id);
@@ -110,7 +107,7 @@ function refreshTransactions() {
       p.appendChild(fromNode);
       p.appendChild(document.createTextNode(' gave '));
       p.appendChild(toNode);
-      p.appendChild(document.createTextNode(` ${amount.toFixed(1)} Flark (to Potential)`));
+      p.appendChild(document.createTextNode(` ${amount.toFixed(1)} Glark (to Potential)`));
     } else {
       p.textContent = tx.text || '';
     }
@@ -130,13 +127,11 @@ function refreshChat() {
     nameNode.style.cursor = 'pointer';
     nameNode.onclick = () => {
       const target = gameState.players.find(p => p.name === msg.from);
-      if (target && target.id !== currentPlayerId) {
-        openTransfer(target.id);
-      } else if (target && target.id === currentPlayerId) {
-        alert('You cannot send to yourself.');
-      } else {
+      if (!target) {
         alert('Player not found in game yet.');
+        return;
       }
+      openTransfer(target.id);
     };
     p.appendChild(nameNode);
     p.appendChild(document.createTextNode(msg.text));
@@ -163,9 +158,11 @@ function refreshAll() {
 
 function openTransfer(targetId) {
   const sender = getCurrentPlayer();
-  if (!sender || sender.id === targetId) return;
+  if (!sender) return;
   transferTargetPlayer = gameState.players.find(p => p.id === targetId);
-  elements.transferTarget.textContent = `${sender.name} → ${transferTargetPlayer.name}`;
+  if (!transferTargetPlayer) return;
+  const targetLabel = transferTargetPlayer.id === sender.id ? 'yourself' : transferTargetPlayer.name;
+  elements.transferTarget.textContent = `${sender.name} → ${targetLabel}`;
   elements.transferAmount.value = '';
   elements.transferModal.classList.remove('hidden');
 }
@@ -183,11 +180,11 @@ function confirmTransfer() {
     return;
   }
   if (amount > sender.flark) {
-    alert('Not enough Flark to send');
+    alert('Not enough Glark to send');
     return;
   }
-  if (sender.flark - amount < 10) {
-    alert('You must keep at least 10 Flark');
+  if (sender.flark - amount < 0) {
+    alert('You must keep at least 0 Glark');
     return;
   }
 
@@ -234,7 +231,8 @@ function setupEvents() {
     });
   });
 
-  elements.potentialBlock.addEventListener('click', convertPotential);
+  elements.potentialBlock.addEventListener('click', () => openTransfer(currentPlayerId));
+  elements.convertPotentialBtn.addEventListener('click', convertPotential);
   elements.txFilter.addEventListener('input', refreshTransactions);
   elements.chatFilter.addEventListener('input', refreshChat);
 

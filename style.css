@@ -37,6 +37,7 @@ main { display:grid; grid-template-columns: 260px 1fr; gap:0.75rem; }
 .player-card h3 { margin:0 0 0.4rem; font-size:1rem; }
 .player-card p { margin:0.2rem 0; font-size:0.9rem; }
 .player-card button { margin-top:0.5rem; border:1px solid #4d5b92; border-radius:6px; background:#1f2b4f; color:#fff; cursor:pointer; padding:4px 6px; }
+.small-button { margin-top: 0.65rem; width: 100%; border: 1px solid #4d5b92; border-radius:6px; background:#2d71ff; color:#fff; cursor:pointer; padding:6px 0; }
 .tx-name { color: #72a7ff; text-decoration: underline; }
 .modal { position:fixed; inset:0; background:rgba(0,0,0,0.65); display:flex; align-items:center; justify-content:center; z-index:20; }
 .modal.hidden { display:none; }
