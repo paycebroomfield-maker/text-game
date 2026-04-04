@@ -183,8 +183,8 @@ function confirmTransfer() {
     alert('Not enough Glark to send');
     return;
   }
-  if (sender.flark - amount < 0) {
-    alert('You must keep at least 0 Glark');
+  if (sender.flark - amount < 10) {
+    alert('You must keep at least 10 Glark');
     return;
   }
 

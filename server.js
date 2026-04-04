@@ -126,6 +126,7 @@ io.on('connection', socket => {
     const amountN = Number(amount);
     if (!from || !to || !Number.isFinite(amountN) || amountN <= 0) return;
     if (from.flark < amountN) return;
+    if (from.flark - amountN < 10) return;
     from.flark -= amountN;
     to.potential += amountN;
     addTransaction(from.name, to.name, amountN);
