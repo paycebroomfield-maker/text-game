@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flark Exchange</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="authContainer" class="auth-box">
+    <h2>Flark Exchange Login</h2>
+    <div class="auth-row">
+      <label>Username <input id="authUsername" type="text" /></label>
+    </div>
+    <div class="auth-row">
+      <label>Password <input id="authPassword" type="password" /></label>
+    </div>
+    <div class="auth-row">
+      <button id="authLoginBtn">Login</button>
+      <button id="authRegisterBtn">Register</button>
+    </div>
+    <p id="authMessage" class="auth-message"></p>
+  </div>
+  <div id="gameContainer" class="hidden">
+    <div class="container">
+      <header>
+        <h1>Flark Exchange</h1>
+      </header>
+
+    <main>
+      <aside class="status">
+        <div class="stat-block">
+          <span>Flark</span>
+          <strong id="flarkValue">0</strong>
+        </div>
+        <div class="stat-block potential" id="potentialBlock" title="Click to convert potential to flark">
+          <span>Potential</span>
+          <strong id="potentialValue">0</strong>
+        </div>
+        <div class="stat-block">
+          <span>Multiplier</span>
+          <strong id="multiplierValue">x1</strong>
+        </div>
+      </aside>
+
+      <section class="activity">
+        <div class="box transactions">
+          <div class="box-header">
+            <h2>Transactions</h2>
+            <input id="txFilter" type="text" placeholder="Search transactions" />
+          </div>
+          <div id="transactionsList" class="log"></div>
+        </div>
+
+        <div class="box chatgroup">
+          <div class="box-header">
+            <h2>Chats</h2>
+          </div>
+          <div class="chat-tabs">
+            <button class="chat-tab active" data-chat="1">Chat 1</button>
+            <button class="chat-tab" data-chat="2">Chat 2</button>
+            <button class="chat-tab" data-chat="3">Chat 3</button>
+          </div>
+          <div class="box-header chat-search-row">
+            <input id="chatFilter" type="text" placeholder="Search chats" />
+          </div>
+          <div id="chatLog" class="log"></div>
+          <div class="chat-input-row">
+            <input id="chatMessage" type="text" placeholder="Type a message" />
+            <button id="sendChatBtn">Send</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    </div>
+  </div>
+
+  <div id="transferModal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Send Flark to</h3>
+      <p id="transferTarget"></p>
+      <input id="transferAmount" type="number" min="1" placeholder="Amount" />
+      <div class="modal-actions">
+        <button id="confirmTransfer">Send</button>
+        <button id="cancelTransfer">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+const socket = io();
+let gameState = { players: [], transactions: [], chatRooms: {1: [], 2: [], 3: []} };
+let currentPlayerId = null;
+let currentUsername = null;
+let activeChatRoom = 1;
+let transferTargetPlayer = null;
+
+const elements = {
+  authContainer: document.getElementById('authContainer'),
+  gameContainer: document.getElementById('gameContainer'),
+  authUsername: document.getElementById('authUsername'),
+  authPassword: document.getElementById('authPassword'),
+  authLoginBtn: document.getElementById('authLoginBtn'),
+  authRegisterBtn: document.getElementById('authRegisterBtn'),
+  authMessage: document.getElementById('authMessage'),
+  flarkValue: document.getElementById('flarkValue'),
+  potentialValue: document.getElementById('potentialValue'),
+  multiplierValue: document.getElementById('multiplierValue'),
+  potentialBlock: document.getElementById('potentialBlock'),
+  transactionsList: document.getElementById('transactionsList'),
+  txFilter: document.getElementById('txFilter'),
+  chatFilter: document.getElementById('chatFilter'),
+  chatLog: document.getElementById('chatLog'),
+  chatMessage: document.getElementById('chatMessage'),
+  sendChatBtn: document.getElementById('sendChatBtn'),
+  chatTabs: [...document.querySelectorAll('.chat-tab')],
+  transferModal: document.getElementById('transferModal'),
+  transferTarget: document.getElementById('transferTarget'),
+  transferAmount: document.getElementById('transferAmount'),
+  confirmTransfer: document.getElementById('confirmTransfer'),
+  cancelTransfer: document.getElementById('cancelTransfer'),
+};
+
+function calculateMultiplier(potential) {
+  return 1 + Math.floor(potential / 5) * 0.1;
+}
+
+function getCurrentPlayer() {
+  return gameState.players.find(p => p.id === currentPlayerId);
+}
+
+function refreshPlayerGrid() {
+  // removed: player grid is no longer in UI
+}
+
+function refreshStatus() {
+  const player = getCurrentPlayer();
+  if (!player) {
+    elements.flarkValue.textContent = '0';
+    elements.potentialValue.textContent = '0';
+    elements.multiplierValue.textContent = 'x1';
+    return;
+  }
+  elements.flarkValue.textContent = player.flark.toFixed(1);
+  elements.potentialValue.textContent = player.potential.toFixed(1);
+  elements.multiplierValue.textContent = `x${calculateMultiplier(player.potential).toFixed(1)}`;
+}
+
+function clickTransactionName(name) {
+  const target = gameState.players.find(p => p.name === name);
+  if (!target) {
+    alert('Player not found in game yet.');
+    return;
+  }
+  if (target.id === currentPlayerId) {
+    alert('You cannot send to yourself.');
+    return;
+  }
+  openTransfer(target.id);
+}
+
+function refreshTransactions() {
+  const query = elements.txFilter.value.trim().toLowerCase();
+  elements.transactionsList.innerHTML = '';
+
+  const filtered = gameState.transactions.filter(tx => {
+    const text = tx.text || '';
+    const names = `${tx.from || ''} ${tx.to || ''}`;
+    return !query || text.toLowerCase().includes(query) || names.toLowerCase().includes(query);
+  });
+
+  if (filtered.length === 0) {
+    const placeholder = document.createElement('p');
+    placeholder.textContent = 'No transactions yet.';
+    placeholder.style.opacity = '0.7';
+    elements.transactionsList.appendChild(placeholder);
+    return;
+  }
+
+  filtered.forEach(tx => {
+    const p = document.createElement('p');
+
+    const fromName = tx.from || '';
+    const toName = tx.to || '';
+    const amount = Number(tx.amount);
+
+    if (fromName && toName && !Number.isNaN(amount)) {
+      const fromNode = document.createElement('strong');
+      fromNode.textContent = fromName;
+      fromNode.className = 'tx-name';
+      fromNode.style.cursor = 'pointer';
+      fromNode.onclick = () => clickTransactionName(fromName);
+
+      const toNode = document.createElement('strong');
+      toNode.textContent = toName;
+      toNode.className = 'tx-name';
+      toNode.style.cursor = 'pointer';
+      toNode.onclick = () => clickTransactionName(toName);
+
+      p.appendChild(fromNode);
+      p.appendChild(document.createTextNode(' gave '));
+      p.appendChild(toNode);
+      p.appendChild(document.createTextNode(` ${amount.toFixed(1)} Flark (to Potential)`));
+    } else {
+      p.textContent = tx.text || '';
+    }
+
+    elements.transactionsList.appendChild(p);
+  });
+}
+
+function refreshChat() {
+  const query = elements.chatFilter.value.trim().toLowerCase();
+  elements.chatLog.innerHTML = '';
+  gameState.chatRooms[activeChatRoom].filter(msg => !query || msg.text.toLowerCase().includes(query) || msg.from.toLowerCase().includes(query)).forEach(msg => {
+    const p = document.createElement('p');
+    const nameNode = document.createElement('strong');
+    nameNode.textContent = `${msg.from}: `;
+    nameNode.className = 'chat-name';
+    nameNode.style.cursor = 'pointer';
+    nameNode.onclick = () => {
+      const target = gameState.players.find(p => p.name === msg.from);
+      if (target && target.id !== currentPlayerId) {
+        openTransfer(target.id);
+      } else if (target && target.id === currentPlayerId) {
+        alert('You cannot send to yourself.');
+      } else {
+        alert('Player not found in game yet.');
+      }
+    };
+    p.appendChild(nameNode);
+    p.appendChild(document.createTextNode(msg.text));
+    elements.chatLog.appendChild(p);
+  });
+}
+
+function showAuth(show, message = '') {
+  if (show) {
+    elements.authContainer.classList.remove('hidden');
+    elements.gameContainer.classList.add('hidden');
+  } else {
+    elements.authContainer.classList.add('hidden');
+    elements.gameContainer.classList.remove('hidden');
+  }
+  elements.authMessage.textContent = message;
+}
+
+function refreshAll() {
+  refreshStatus();
+  refreshTransactions();
+  refreshChat();
+}
+
+function openTransfer(targetId) {
+  const sender = getCurrentPlayer();
+  if (!sender || sender.id === targetId) return;
+  transferTargetPlayer = gameState.players.find(p => p.id === targetId);
+  elements.transferTarget.textContent = `${sender.name} → ${transferTargetPlayer.name}`;
+  elements.transferAmount.value = '';
+  elements.transferModal.classList.remove('hidden');
+}
+
+function closeTransfer() {
+  transferTargetPlayer = null;
+  elements.transferModal.classList.add('hidden');
+}
+
+function confirmTransfer() {
+  const sender = getCurrentPlayer();
+  const amount = parseFloat(elements.transferAmount.value);
+  if (!sender || !transferTargetPlayer || !Number.isFinite(amount) || amount <= 0) {
+    alert('Enter a valid positive amount');
+    return;
+  }
+  if (amount > sender.flark) {
+    alert('Not enough Flark to send');
+    return;
+  }
+  if (sender.flark - amount < 10) {
+    alert('You must keep at least 10 Flark');
+    return;
+  }
+
+  socket.emit('send_potential', { fromId: sender.id, toId: transferTargetPlayer.id, amount });
+  closeTransfer();
+}
+
+function convertPotential() {
+  const player = getCurrentPlayer();
+  if (!player || player.potential <= 0) return;
+  socket.emit('convert_potential', { playerId: player.id });
+}
+
+function setupEvents() {
+  showAuth(true);
+
+  elements.authLoginBtn.addEventListener('click', () => {
+    const username = elements.authUsername.value.trim();
+    const password = elements.authPassword.value;
+    socket.emit('login', { username, password }, response => {
+      if (response.success) {
+        currentPlayerId = response.playerId;
+        currentUsername = response.username;
+        showAuth(false);
+        refreshAll();
+      } else {
+        showAuth(true, response.message);
+      }
+    });
+  });
+
+  elements.authRegisterBtn.addEventListener('click', () => {
+    const username = elements.authUsername.value.trim();
+    const password = elements.authPassword.value;
+    socket.emit('register', { username, password }, response => {
+      if (response.success) {
+        currentPlayerId = response.playerId;
+        currentUsername = response.username;
+        showAuth(false);
+        refreshAll();
+      } else {
+        showAuth(true, response.message);
+      }
+    });
+  });
+
+  elements.potentialBlock.addEventListener('click', convertPotential);
+  elements.txFilter.addEventListener('input', refreshTransactions);
+  elements.chatFilter.addEventListener('input', refreshChat);
+
+  elements.sendChatBtn.addEventListener('click', () => {
+    const player = getCurrentPlayer();
+    const text = elements.chatMessage.value.trim();
+    if (!player || !text) return;
+    socket.emit('send_chat', { playerId: player.id, room: activeChatRoom, text });
+    elements.chatMessage.value = '';
+  });
+
+  elements.chatTabs.forEach(tab => tab.addEventListener('click', () => {
+    elements.chatTabs.forEach(b => b.classList.remove('active'));
+    tab.classList.add('active');
+    activeChatRoom = Number(tab.dataset.chat);
+    refreshChat();
+  }));
+
+  elements.cancelTransfer.addEventListener('click', closeTransfer);
+  elements.confirmTransfer.addEventListener('click', confirmTransfer);
+
+  socket.on('state', state => {
+    gameState = state;
+    if (!currentPlayerId || !gameState.players.some(p => p.id === currentPlayerId)) {
+      currentPlayerId = gameState.players[0]?.id || null;
+    }
+    refreshAll();
+  });
+
+  socket.on('connect', () => {
+    socket.emit('join', serverState => {
+      gameState = serverState;
+      currentPlayerId = currentPlayerId || gameState.players[0]?.id || null;
+      refreshAll();
+    });
+  });
+
+  socket.on('disconnect', () => console.warn('Disconnected from server'));
+}
+
+setupEvents();
