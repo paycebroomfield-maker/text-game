@@ -255,7 +255,10 @@ function setupEvents() {
 
   elements.potentialBlock.addEventListener('click', () => openTransfer(currentPlayerId));
   elements.convertPotentialBtn.addEventListener('click', e => {
+ copilot/implement-potential-growth-and-fix-convert-button
+    e.stopImmediatePropagation();
     e.stopPropagation(); // prevent click bubbling to potentialBlock which opens the transfer modal
+  main
     convertPotential();
   });
   elements.txFilter.addEventListener('input', refreshTransactions);
