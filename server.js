@@ -69,11 +69,14 @@ function round8(n) {
   return Math.round(n * 1e8) / 1e8;
 }
 
-// Multiplier derived from current potential: multiplier = 1 + 0.005 * potential.
+// Multiplier derived from current potential using 10-point bucket:
+// bucket = floor(potential / 10) * 10; multiplier = 1 + 0.0001 * bucket.
+// Multiplier changes only at potential 0, 10, 20, 30, …
 function computeMultiplierFromPotential(potential) {
   const p = Number(potential);
   if (!Number.isFinite(p) || p < 0) return 1.0;
-  return round8(1.0 + 0.005 * p);
+  const bucket = Math.floor(p / 10) * 10;
+  return 1.0 + 0.0001 * bucket;
 }
 
 // Backfill multiplier for players saved before this field was introduced,
@@ -253,26 +256,44 @@ setInterval(() => {
   broadcastState();
 }, TESTING_DECAY_INTERVAL_MS);
 
-// Potential growth: every tick recompute multiplier from potential and multiply potential.
+// Potential growth: Option A – multiplier is derived from the *new* potential.
+// Use a small fixed-point iteration to solve newP = round8(oldP * mult(newP))
+// where mult(x) uses the 10-point bucket formula.
 // TODO: revert POTENTIAL_TICK_MS to 3_600_000 (1 hour) after testing.
 const POTENTIAL_TICK_MS = 10_000; // 10 s for testing
 setInterval(() => {
   let changed = false;
   state.players.forEach(p => {
-    // Compute multiplier from potential at the start of the tick (old value).
-    const oldPotential = Number(p.potential) || 0;
-    const mult = computeMultiplierFromPotential(oldPotential);
-    if (p.multiplier !== mult) {
-      p.multiplier = mult;
-      changed = true;
+    const oldP = Number(p.potential) || 0;
+
+    if (oldP === 0) {
+      if (p.multiplier !== 1) {
+        p.multiplier = 1;
+        changed = true;
+      }
+      return;
     }
 
-    // Strict rule: newPotential = round8(oldPotential * multiplier).
-    if (oldPotential === 0) return;
+    // Fixed-point iteration: start from oldP, converge on newP where
+    // multiplier is derived from the *new* potential bucket.
+    // 3 iterations are sufficient: bucket size is 10 and potential grows
+    // by at most ~0.001× per tick, so the bucket rarely changes mid-iteration.
+    const FIXEDPOINT_ITERATIONS = 3;
+    let guess = oldP;
+    for (let i = 0; i < FIXEDPOINT_ITERATIONS; i++) {
+      const bucket = Math.floor(guess / 10) * 10;
+      const mult = 1 + 0.0001 * bucket;
+      guess = round8(oldP * mult);
+    }
 
-    const newPotential = round8(oldPotential * mult);
-    if (newPotential !== oldPotential) {
-      p.potential = newPotential;
+    const newMultiplier = computeMultiplierFromPotential(guess);
+
+    if (p.potential !== guess) {
+      p.potential = guess;
+      changed = true;
+    }
+    if (p.multiplier !== newMultiplier) {
+      p.multiplier = newMultiplier;
       changed = true;
     }
   });
