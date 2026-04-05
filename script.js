@@ -63,7 +63,8 @@ function refreshStatus() {
   }
   elements.flarkValue.textContent = player.flark.toFixed(1);
   elements.potentialValue.textContent = player.potential.toFixed(1);
-  elements.multiplierValue.textContent = `x${calculateMultiplier(player.potential).toFixed(1)}`;
+  const mult = typeof player.multiplier === 'number' ? player.multiplier : 1;
+  elements.multiplierValue.textContent = `x${mult.toFixed(2)}`;
 }
 
 function clickTransactionName(name) {
@@ -253,7 +254,10 @@ function setupEvents() {
   });
 
   elements.potentialBlock.addEventListener('click', () => openTransfer(currentPlayerId));
-  elements.convertPotentialBtn.addEventListener('click', convertPotential);
+  elements.convertPotentialBtn.addEventListener('click', e => {
+    e.stopPropagation(); // prevent click bubbling to potentialBlock which opens the transfer modal
+    convertPotential();
+  });
   elements.txFilter.addEventListener('input', refreshTransactions);
   elements.chatFilter.addEventListener('input', refreshChat);
 
