@@ -253,7 +253,10 @@ function setupEvents() {
   });
 
   elements.potentialBlock.addEventListener('click', () => openTransfer(currentPlayerId));
-  elements.convertPotentialBtn.addEventListener('click', convertPotential);
+  elements.convertPotentialBtn.addEventListener('click', e => {
+    e.stopImmediatePropagation();
+    convertPotential();
+  });
   elements.txFilter.addEventListener('input', refreshTransactions);
   elements.chatFilter.addEventListener('input', refreshChat);
 
