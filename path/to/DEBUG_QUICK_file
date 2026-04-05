@@ -1,0 +1,5 @@
+// Reintroducing the DEBUG_QUICK extra decay timer
+if (DEBUG_QUICK) {
+    // Existing DEBUG_QUICK block
+    // Code for DEBUG_QUICK extra decay timer
+}
