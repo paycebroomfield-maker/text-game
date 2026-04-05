@@ -188,10 +188,6 @@ io.on('connection', socket => {
     if (from.flark < amountN) return;
     if (from.flark - amountN < 10) return;
     from.flark -= amountN;
-    if (from.flark <= 0) {
-      from.flark = 0;
-      from.potential = 0;
-    }
     to.potential += amountN;
     addTransaction(from.name, to.name, amountN);
     broadcastState();
