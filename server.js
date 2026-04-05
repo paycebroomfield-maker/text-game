@@ -77,9 +77,19 @@ function computeMultiplierFromGlark(glark) {
   return 1.0 + 0.5 * Math.floor(g / 50);
 }
 
+// Minimum Glark a player may hold at any time.
+const MIN_FLARK = 50;
+
+// Clamp a player's flark to the minimum.  Called on startup backfill, after
+// any deduction, and at the start of every potential-growth tick.
+function clampFlark(p) {
+  if (!Number.isFinite(p.flark) || p.flark < MIN_FLARK) p.flark = MIN_FLARK;
+}
+
 // Backfill multiplier for players saved before this field was introduced,
 // and recompute for all existing players to match current flark.
 state.players.forEach(p => {
+  clampFlark(p);
   p.multiplier = computeMultiplierFromGlark(p.flark);
   if (typeof p.multiplier !== 'number' || !Number.isFinite(p.multiplier)) {
     p.multiplier = 1.0;
@@ -104,8 +114,11 @@ function createPlayer(name, initialFlark = 10, initialPotential = 0) {
     name,
     flark,
     potential,
-    multiplier: computeMultiplierFromGlark(flark),
+    multiplier: 1.0,
   };
+
+  clampFlark(player);
+  player.multiplier = computeMultiplierFromGlark(player.flark);
 
   state.players.push(player);
   return player;
@@ -218,15 +231,9 @@ io.on('connection', socket => {
     const to = resolvePlayerById(toId);
     const amountN = Number(amount);
     if (!from || !to || !Number.isFinite(amountN) || amountN <= 0) return;
-    if (from.flark < amountN) return;
-    if (from.flark - amountN < 10) return;
+    if (from.flark - amountN < MIN_FLARK) return;
     from.flark -= amountN;
-    // Defensive: zero out potential if flark somehow reaches 0 (guard above
-    // currently prevents going below 10, but this future-proofs the rule).
-    if (from.flark <= 0) {
-      from.flark = 0;
-      from.potential = 0;
-    }
+    clampFlark(from);
     to.potential += amountN;
     addTransaction(from.name, to.name, amountN);
     broadcastState();
@@ -253,8 +260,7 @@ io.on('connection', socket => {
 const TESTING_DECAY_INTERVAL_MS = 10_000; // TODO: revert to 60 * 60 * 1000 after testing
 setInterval(() => {
   state.players.forEach(p => {
-    p.flark = Math.max(0, p.flark - 1);
-    if (p.flark === 0) p.potential = 0;
+    p.flark = Math.max(MIN_FLARK, p.flark - 1);
   });
   broadcastState();
 }, TESTING_DECAY_INTERVAL_MS);
@@ -265,26 +271,23 @@ const POTENTIAL_TICK_MS = 10_000; // 10 s for testing
 setInterval(() => {
   let changed = false;
   state.players.forEach(p => {
-    // Recompute multiplier from current Glark each tick.
+    // Enforce the minimum-flark invariant, then derive the multiplier for this tick.
+    clampFlark(p);
     const mult = computeMultiplierFromGlark(p.flark);
     if (p.multiplier !== mult) {
       p.multiplier = mult;
       changed = true;
     }
 
-    // Safety clamp: if flark is 0, potential must also be 0.
-    if (p.flark === 0 && p.potential !== 0) {
-      p.potential = 0;
-      changed = true;
-      return;
-    }
+    // Strict rule: newPotential = round8(oldPotential * multiplier).
+    // oldPotential is captured here – before any write – so the update is
+    // never compounded by an earlier player's already-updated value.
+    const oldPotential = p.potential;
+    if (oldPotential === 0) return;
 
-    const pot = Number(p.potential) || 0;
-    if (pot === 0) return;
-
-    const next = round8(pot * mult);
-    if (next !== p.potential) {
-      p.potential = next;
+    const newPotential = round8(oldPotential * mult);
+    if (newPotential !== oldPotential) {
+      p.potential = newPotential;
       changed = true;
     }
   });
@@ -295,8 +298,7 @@ setInterval(() => {
 if (process.env.DEBUG_QUICK) {
   setInterval(() => {
     state.players.forEach(p => {
-      p.flark = Math.max(0, p.flark - 1);
-      if (p.flark === 0) p.potential = 0;
+      p.flark = Math.max(MIN_FLARK, p.flark - 1);
     });
     broadcastState();
   }, 10000);
