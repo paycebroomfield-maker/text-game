@@ -225,6 +225,12 @@ const POTENTIAL_TICK_MS = 10_000; // TODO: revert to 60 * 60 * 1000 (1 hour) aft
 setInterval(() => {
   let changed = false;
   state.players.forEach(p => {
+    // Safety clamp: if flark is 0, potential must also be 0.
+    if (p.flark === 0 && p.potential !== 0) {
+      p.potential = 0;
+      changed = true;
+      return;
+    }
     const pot = Number(p.potential);
     const mult = Number(p.multiplier);
     if (!Number.isFinite(pot) || !Number.isFinite(mult) || mult <= 0 || pot === 0) return;
@@ -240,7 +246,10 @@ setInterval(() => {
 // quick debug timer if env set.
 if (process.env.DEBUG_QUICK) {
   setInterval(() => {
-    state.players.forEach(p => { p.flark = Math.max(0, p.flark - 1); });
+    state.players.forEach(p => {
+      p.flark = Math.max(0, p.flark - 1);
+      if (p.flark === 0) p.potential = 0;
+    });
     broadcastState();
   }, 10000);
 }
