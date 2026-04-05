@@ -64,33 +64,10 @@ const loaded = loadData({ state: defaultState, users: defaultUsers });
 const state = loaded.state;
 const users = loaded.users;
 
-// Backfill multiplier for players saved before this field was introduced,
-// and recompute for all existing players to match current flark.
-state.players.forEach(p => {
- copilot/implement-multiplier-tick-behavior
-  p.multiplier = computeMultiplierFromFlark(p.flark);
-
-  if (typeof p.multiplier !== 'number' || !Number.isFinite(p.multiplier)) {
-    p.multiplier = 1.0;
-  }
- main
-});
-
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
-
 // Round to 8 decimal places to avoid floating-point drift.
 function round8(n) {
   return Math.round(n * 1e8) / 1e8;
 }
-
- copilot/implement-multiplier-tick-behavior
-// Multiplier derived from current flark balance: default x1.0, +0.5 per 50 flark.
-function computeMultiplierFromFlark(flark) {
-  const f = Number(flark);
-  if (!Number.isFinite(f) || f < 0) return 1.0;
-  return 1.0 + 0.5 * Math.floor(f / 50);
 
 // Multiplier derived from current Glark (flark): default x1.0, +0.5 per 50 Glark.
 // e.g. 0–49 Glark → x1.0, 50–99 → x1.5, 100–149 → x2.0, etc.
@@ -98,26 +75,49 @@ function computeMultiplierFromGlark(glark) {
   const g = Number(glark);
   if (!Number.isFinite(g) || g < 0) return 1.0;
   return 1.0 + 0.5 * Math.floor(g / 50);
- main
+}
+
+// Backfill multiplier for players saved before this field was introduced,
+// and recompute for all existing players to match current flark.
+state.players.forEach(p => {
+  p.multiplier = computeMultiplierFromGlark(p.flark);
+  if (typeof p.multiplier !== 'number' || !Number.isFinite(p.multiplier)) {
+    p.multiplier = 1.0;
+  }
+});
+
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
 }
 
 function createPlayer(name, initialFlark = 10, initialPotential = 0) {
   const id = Math.random().toString(36).slice(2, 10);
- copilot/implement-multiplier-tick-behavior
-  const potential = state.players.length < 20 ? 20 : initialPotential || 0;
-  const player = { id, name, flark: initialFlark, potential, multiplier: computeMultiplierFromFlark(initialFlark) };
 
   // First 20 players get 50 potential; everyone after starts at 0.
+  // Note: this ignores initialPotential by design.
   const potential = state.players.length < 20 ? 50 : 0;
-  const player = { id, name, flark: initialFlark, potential, multiplier: 1.0 };
- main
+
+  const player = {
+    id,
+    name,
+    flark: initialFlark,
+    potential,
+    multiplier: computeMultiplierFromGlark(initialFlark),
+  };
+
   state.players.push(player);
   return player;
 }
 
 function addTransaction(from, to, amount) {
   const text = `${from} gave ${to} ${amount.toFixed(1)} Glark (to Potential)`;
-  state.transactions.unshift({ from, to, amount: Number(amount.toFixed(1)), text, time: Date.now() });
+  state.transactions.unshift({
+    from,
+    to,
+    amount: Number(amount.toFixed(1)),
+    text,
+    time: Date.now(),
+  });
   if (state.transactions.length > 200) state.transactions.pop();
 }
 
@@ -137,13 +137,17 @@ function resolvePlayerById(id) {
 function registerUser(username, password) {
   const key = username.trim().toLowerCase();
   if (!username || !password || username.length < 3 || password.length < 4) {
-    return { success: false, message: 'Username 3+ chars, password 4+ chars required' };
+    return {
+      success: false,
+      message: 'Username 3+ chars, password 4+ chars required',
+    };
   }
   if (users[key]) {
     return { success: false, message: 'Username already exists' };
   }
 
-  const player = createPlayer(username.trim(), 10, 0);
+  // createPlayer() now owns the starting-potential rule.
+  const player = createPlayer(username.trim(), 10);
   users[key] = {
     username: username.trim(),
     passwordHash: hashPassword(password),
@@ -253,42 +257,29 @@ setInterval(() => {
   broadcastState();
 }, TESTING_DECAY_INTERVAL_MS);
 
- copilot/implement-multiplier-tick-behavior
-// Potential growth: every tick compute multiplier from current flark, then multiply potential.
-const POTENTIAL_TICK_MS = 10_000; // TODO: revert to 60 * 60 * 1000 (1 hour) after testing
-setInterval(() => {
-  let changed = false;
-  state.players.forEach(p => {
- copilot/implement-multiplier-tick-behavior
-    const mult = computeMultiplierFromFlark(p.flark);
-
 // Potential growth: every tick recompute multiplier from Glark and multiply potential.
 // TODO: revert POTENTIAL_TICK_MS to 3_600_000 (1 hour) after testing.
 const POTENTIAL_TICK_MS = 10_000; // 10 s for testing
 setInterval(() => {
   let changed = false;
   state.players.forEach(p => {
- copilot/update-potential-system
     // Recompute multiplier from current Glark each tick.
     const mult = computeMultiplierFromGlark(p.flark);
- main
     if (p.multiplier !== mult) {
       p.multiplier = mult;
       changed = true;
+    }
 
     // Safety clamp: if flark is 0, potential must also be 0.
     if (p.flark === 0 && p.potential !== 0) {
       p.potential = 0;
       changed = true;
       return;
- main
     }
-    const pot = Number(p.potential);
- copilot/implement-multiplier-tick-behavior
-    if (!Number.isFinite(pot) || pot <= 0) return;
 
-    if (!Number.isFinite(pot) || pot === 0) return;
- main
+    const pot = Number(p.potential) || 0;
+    if (pot === 0) return;
+
     const next = round8(pot * mult);
     if (next !== p.potential) {
       p.potential = next;
@@ -320,6 +311,8 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Glark server running on http://localhost:${PORT}`);
   if (!process.env.ADMIN_RESET_TOKEN) {
-    console.warn('WARNING: ADMIN_RESET_TOKEN is not set. The /admin/reset-save endpoint will reject all requests.');
+    console.warn(
+      'WARNING: ADMIN_RESET_TOKEN is not set. The /admin/reset-save endpoint will reject all requests.'
+    );
   }
 });
