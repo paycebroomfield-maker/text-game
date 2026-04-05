@@ -41,8 +41,11 @@ const elements = {
   cancelTransfer: document.getElementById('cancelTransfer'),
 };
 
-function calculateMultiplier(potential) {
-  return 1 + Math.floor(potential / 5) * 0.1;
+// Multiplier formula (mirrors server): default x1.0, +0.5 per 50 Glark.
+function calculateMultiplier(glark) {
+  const g = Number(glark) || 0;
+  if (g < 0) return 1.0;
+  return 1.0 + 0.5 * Math.floor(g / 50);
 }
 
 function getCurrentPlayer() {
