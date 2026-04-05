@@ -231,10 +231,18 @@ const POTENTIAL_TICK_MS = 10_000; // TODO: revert to 60 * 60 * 1000 (1 hour) aft
 setInterval(() => {
   let changed = false;
   state.players.forEach(p => {
+ copilot/implement-multiplier-tick-behavior
     const mult = computeMultiplierFromFlark(p.flark);
     if (p.multiplier !== mult) {
       p.multiplier = mult;
       changed = true;
+
+    // Safety clamp: if flark is 0, potential must also be 0.
+    if (p.flark === 0 && p.potential !== 0) {
+      p.potential = 0;
+      changed = true;
+      return;
+ main
     }
     const pot = Number(p.potential);
     if (!Number.isFinite(pot) || pot <= 0) return;
@@ -250,7 +258,10 @@ setInterval(() => {
 // quick debug timer if env set.
 if (process.env.DEBUG_QUICK) {
   setInterval(() => {
-    state.players.forEach(p => { p.flark = Math.max(0, p.flark - 1); });
+    state.players.forEach(p => {
+      p.flark = Math.max(0, p.flark - 1);
+      if (p.flark === 0) p.potential = 0;
+    });
     broadcastState();
   }, 10000);
 }
