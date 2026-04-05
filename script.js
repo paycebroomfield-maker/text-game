@@ -5,6 +5,15 @@ let currentUsername = null;
 let activeChatRoom = 1;
 let transferTargetPlayer = null;
 
+function showToast(message) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
 const elements = {
   authContainer: document.getElementById('authContainer'),
   gameContainer: document.getElementById('gameContainer'),
@@ -61,7 +70,7 @@ function refreshStatus() {
 function clickTransactionName(name) {
   const target = gameState.players.find(p => p.name === name);
   if (!target) {
-    alert('Player not found in game yet.');
+    showToast('Player not found in game yet.');
     return;
   }
   openTransfer(target.id);
@@ -140,7 +149,7 @@ function refreshChat() {
     nameNode.onclick = () => {
       const target = gameState.players.find(p => p.name === msg.from);
       if (!target) {
-        alert('Player not found in game yet.');
+        showToast('Player not found in game yet.');
         return;
       }
       openTransfer(target.id);
@@ -189,15 +198,15 @@ function confirmTransfer() {
   const sender = getCurrentPlayer();
   const amount = parseFloat(elements.transferAmount.value);
   if (!sender || !transferTargetPlayer || !Number.isFinite(amount) || amount <= 0) {
-    alert('Enter a valid positive amount');
+    showToast('Enter a valid positive amount');
     return;
   }
   if (amount > sender.flark) {
-    alert('Not enough Glark to send');
+    showToast('Not enough Glark to send');
     return;
   }
   if (sender.flark - amount < 10) {
-    alert('You must keep at least 10 Glark');
+    showToast('You must keep at least 10 Glark');
     return;
   }
 
