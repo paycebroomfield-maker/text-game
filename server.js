@@ -241,11 +241,19 @@ const POTENTIAL_TICK_MS = 10_000; // 10 s for testing
 setInterval(() => {
   let changed = false;
   state.players.forEach(p => {
+ copilot/update-potential-system
     // Recompute multiplier from current Glark each tick.
     const mult = computeMultiplierFromGlark(p.flark);
     if (p.multiplier !== mult) {
       p.multiplier = mult;
       changed = true;
+
+    // Safety clamp: if flark is 0, potential must also be 0.
+    if (p.flark === 0 && p.potential !== 0) {
+      p.potential = 0;
+      changed = true;
+      return;
+ main
     }
     const pot = Number(p.potential);
     if (!Number.isFinite(pot) || pot === 0) return;
