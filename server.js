@@ -198,13 +198,14 @@ io.on('connection', socket => {
   socket.on('disconnect', () => console.log('client disconnected', socket.id));
 });
 
-// hourly decay; 60*60*1000 ms to match spec.
+// hourly decay; temporarily set to 10 s for testing (was 60 * 60 * 1000).
+const TESTING_DECAY_INTERVAL_MS = 10_000; // TODO: revert to 60 * 60 * 1000 after testing
 setInterval(() => {
   state.players.forEach(p => {
     p.flark = Math.max(0, p.flark - 1);
   });
   broadcastState();
-}, 60 * 60 * 1000);
+}, TESTING_DECAY_INTERVAL_MS);
 
 // quick debug timer if env set.
 if (process.env.DEBUG_QUICK) {
