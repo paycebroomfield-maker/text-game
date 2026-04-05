@@ -30,6 +30,7 @@ const elements = {
   transferAmount: document.getElementById('transferAmount'),
   confirmTransfer: document.getElementById('confirmTransfer'),
   cancelTransfer: document.getElementById('cancelTransfer'),
+  resetSaveBtn: document.getElementById('resetSaveBtn'),
 };
 
 function calculateMultiplier(potential) {
@@ -265,6 +266,15 @@ function setupEvents() {
 
   elements.cancelTransfer.addEventListener('click', closeTransfer);
   elements.confirmTransfer.addEventListener('click', confirmTransfer);
+
+  elements.resetSaveBtn.addEventListener('click', () => {
+    if (!confirm('Reset ALL save data? This will wipe all players, transactions, and chats.')) return;
+    socket.emit('reset_save', () => {
+      currentPlayerId = null;
+      currentUsername = null;
+      showAuth(true);
+    });
+  });
 
   socket.on('state', state => {
     gameState = state;
