@@ -64,11 +64,10 @@ const loaded = loadData({ state: defaultState, users: defaultUsers });
 const state = loaded.state;
 const users = loaded.users;
 
-// Backfill multiplier for players saved before this field was introduced.
+// Backfill multiplier for players saved before this field was introduced,
+// and recompute for all existing players to match current flark.
 state.players.forEach(p => {
-  if (typeof p.multiplier !== 'number' || !Number.isFinite(p.multiplier)) {
-    p.multiplier = 1.1;
-  }
+  p.multiplier = computeMultiplierFromFlark(p.flark);
 });
 
 function hashPassword(password) {
@@ -80,10 +79,17 @@ function round8(n) {
   return Math.round(n * 1e8) / 1e8;
 }
 
+// Multiplier derived from current flark balance: default x1.0, +0.5 per 50 flark.
+function computeMultiplierFromFlark(flark) {
+  const f = Number(flark);
+  if (!Number.isFinite(f) || f < 0) return 1.0;
+  return 1.0 + 0.5 * Math.floor(f / 50);
+}
+
 function createPlayer(name, initialFlark = 10, initialPotential = 0) {
   const id = Math.random().toString(36).slice(2, 10);
   const potential = state.players.length < 20 ? 20 : initialPotential || 0;
-  const player = { id, name, flark: initialFlark, potential, multiplier: 1.1 };
+  const player = { id, name, flark: initialFlark, potential, multiplier: computeMultiplierFromFlark(initialFlark) };
   state.players.push(player);
   return player;
 }
@@ -220,14 +226,18 @@ setInterval(() => {
   broadcastState();
 }, TESTING_DECAY_INTERVAL_MS);
 
-// Potential growth: every tick multiply each player's potential by their multiplier.
+// Potential growth: every tick compute multiplier from current flark, then multiply potential.
 const POTENTIAL_TICK_MS = 10_000; // TODO: revert to 60 * 60 * 1000 (1 hour) after testing
 setInterval(() => {
   let changed = false;
   state.players.forEach(p => {
+    const mult = computeMultiplierFromFlark(p.flark);
+    if (p.multiplier !== mult) {
+      p.multiplier = mult;
+      changed = true;
+    }
     const pot = Number(p.potential);
-    const mult = Number(p.multiplier);
-    if (!Number.isFinite(pot) || !Number.isFinite(mult) || mult <= 0 || pot === 0) return;
+    if (!Number.isFinite(pot) || pot <= 0) return;
     const next = round8(pot * mult);
     if (next !== p.potential) {
       p.potential = next;
