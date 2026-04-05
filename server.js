@@ -43,9 +43,9 @@ app.post('/admin/reset-save', (req, res) => {
   // Clear socket.user on every connected socket so stale references can't
   // be used to perform actions on the now-empty state.
   for (const [, s] of io.sockets.sockets) s.user = null;
-  createPlayer('Alice', 10, 0);
-  createPlayer('Bob', 10, 0);
-  createPlayer('Carmen', 10, 0);
+  createPlayer('Alice');
+  createPlayer('Bob');
+  createPlayer('Carmen');
   broadcastState();
   res.json({ success: true });
 });
@@ -93,16 +93,18 @@ function hashPassword(password) {
 function createPlayer(name, initialFlark = 10, initialPotential = 0) {
   const id = Math.random().toString(36).slice(2, 10);
 
-  // First 20 players get 50 potential; everyone after starts at 0.
-  // Note: this ignores initialPotential by design.
-  const potential = state.players.length < 20 ? 50 : 0;
+  // First 20 players are "starters": 50 Glark + 50 Potential → multiplier 1.5.
+  // Everyone after uses initialFlark (default 10) and starts with 0 potential.
+  const isStarter = state.players.length < 20;
+  const flark = isStarter ? 50 : initialFlark;
+  const potential = isStarter ? 50 : initialPotential;
 
   const player = {
     id,
     name,
-    flark: initialFlark,
+    flark,
     potential,
-    multiplier: computeMultiplierFromGlark(initialFlark),
+    multiplier: computeMultiplierFromGlark(flark),
   };
 
   state.players.push(player);
@@ -197,7 +199,7 @@ io.on('connection', socket => {
   socket.on('create_player', name => {
     if (!socket.user) return;
     if (!name || !name.trim()) return;
-    createPlayer(name.trim(), 50, 0);
+    createPlayer(name.trim());
     broadcastState();
   });
 
@@ -302,9 +304,9 @@ if (process.env.DEBUG_QUICK) {
 
 // Bootstrap initial players only when starting fresh (no persisted data).
 if (state.players.length === 0) {
-  createPlayer('Alice', 10, 0);
-  createPlayer('Bob', 10, 0);
-  createPlayer('Carmen', 10, 0);
+  createPlayer('Alice');
+  createPlayer('Bob');
+  createPlayer('Carmen');
 }
 
 const PORT = process.env.PORT || 3000;
