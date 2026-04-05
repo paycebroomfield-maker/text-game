@@ -64,14 +64,26 @@ const loaded = loadData({ state: defaultState, users: defaultUsers });
 const state = loaded.state;
 const users = loaded.users;
 
+// Backfill multiplier for players saved before this field was introduced.
+state.players.forEach(p => {
+  if (typeof p.multiplier !== 'number' || !Number.isFinite(p.multiplier)) {
+    p.multiplier = 1.1; // default; see createPlayer comment above
+  }
+});
+
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+function round8(n) {
+  return Math.round(n * 1e8) / 1e8;
 }
 
 function createPlayer(name, initialFlark = 10, initialPotential = 0) {
   const id = Math.random().toString(36).slice(2, 10);
   const potential = state.players.length < 20 ? 20 : initialPotential || 0;
-  const player = { id, name, flark: initialFlark, potential };
+  // Default multiplier 1.1 gives visible growth during testing; change to 1.0 for production.
+  const player = { id, name, flark: initialFlark, potential, multiplier: 1.1 };
   state.players.push(player);
   return player;
 }
@@ -206,6 +218,23 @@ setInterval(() => {
   });
   broadcastState();
 }, TESTING_DECAY_INTERVAL_MS);
+
+// Potential growth: every tick multiply each player's potential by their multiplier.
+const POTENTIAL_TICK_MS = 10_000; // TODO: revert to 60 * 60 * 1000 (1 hour) after testing
+setInterval(() => {
+  let changed = false;
+  state.players.forEach(p => {
+    const pot = Number(p.potential);
+    const mult = Number(p.multiplier);
+    if (!Number.isFinite(pot) || !Number.isFinite(mult) || mult <= 0 || pot === 0) return;
+    const next = round8(pot * mult);
+    if (next !== p.potential) {
+      p.potential = next;
+      changed = true;
+    }
+  });
+  if (changed) broadcastState();
+}, POTENTIAL_TICK_MS);
 
 // quick debug timer if env set.
 if (process.env.DEBUG_QUICK) {
