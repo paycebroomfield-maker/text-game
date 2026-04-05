@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const crypto = require('crypto');
+const { loadData, requestSave } = require('./persist');
 
 const app = express();
 const server = http.createServer(app);
@@ -9,13 +10,19 @@ const io = new Server(server);
 
 app.use(express.static(__dirname));
 
-const state = {
+// ---------------------------------------------------------------------------
+// Persistent state – loaded from disk on startup, saved after every mutation.
+// ---------------------------------------------------------------------------
+const defaultState = {
   players: [],
   transactions: [],
   chatRooms: { 1: [], 2: [], 3: [] },
 };
+const defaultUsers = {};
 
-const users = {};
+const loaded = loadData({ state: defaultState, users: defaultUsers });
+const state = loaded.state;
+const users = loaded.users;
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -41,6 +48,7 @@ function broadcastState() {
     transactions: state.transactions,
     chatRooms: state.chatRooms,
   });
+  requestSave({ state, users });
 }
 
 function resolvePlayerById(id) {
@@ -83,10 +91,33 @@ io.on('connection', socket => {
     if (result.success) {
       socket.user = { username: result.username, playerId: result.playerId };
       callback({ success: true, playerId: result.playerId, username: result.username });
-      broadcastState();
+      broadcastState(); // also calls requestSave
     } else {
       callback({ success: false, message: result.message });
     }
+  });
+
+  socket.on('reset_save', callback => {
+    // Only allow a logged-in user to trigger a reset.
+    if (!socket.user) {
+      if (typeof callback === 'function') callback({ success: false, message: 'Not authenticated' });
+      return;
+    }
+    // Clear all runtime state and users, then persist the empty slate.
+    state.players.length = 0;
+    state.transactions.length = 0;
+    state.chatRooms[1] = [];
+    state.chatRooms[2] = [];
+    state.chatRooms[3] = [];
+    for (const key of Object.keys(users)) delete users[key];
+    // Clear socket.user on every connected socket so stale references can't
+    // be used to perform actions on the now-empty state.
+    for (const [, s] of io.sockets.sockets) s.user = null;
+    createPlayer('Alice', 10, 0);
+    createPlayer('Bob', 10, 0);
+    createPlayer('Carmen', 10, 0);
+    broadcastState();
+    if (typeof callback === 'function') callback({ success: true });
   });
 
   socket.on('login', ({ username, password }, callback) => {
@@ -166,10 +197,12 @@ if (process.env.DEBUG_QUICK) {
   }, 10000);
 }
 
-// bootstrap initial players
-createPlayer('Alice', 10, 0);
-createPlayer('Bob', 10, 0);
-createPlayer('Carmen', 10, 0);
+// Bootstrap initial players only when starting fresh (no persisted data).
+if (state.players.length === 0) {
+  createPlayer('Alice', 10, 0);
+  createPlayer('Bob', 10, 0);
+  createPlayer('Carmen', 10, 0);
+}
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Glark server running on http://localhost:${PORT}`));
