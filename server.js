@@ -64,17 +64,10 @@ const loaded = loadData({ state: defaultState, users: defaultUsers });
 const state = loaded.state;
 const users = loaded.users;
 
-copilot/implement-potential-growth-and-fix-convert-button
-// Backfill multiplier for players persisted before this field was added.
-state.players.forEach(p => {
-  if (!Number.isFinite(p.multiplier) || p.multiplier <= 0) {
-    p.multiplier = 1.1; // default; change to 1.0 once you've set per-player values
-
 // Backfill multiplier for players saved before this field was introduced.
 state.players.forEach(p => {
   if (typeof p.multiplier !== 'number' || !Number.isFinite(p.multiplier)) {
-    p.multiplier = 1.1; // default; see createPlayer comment above
- main
+    p.multiplier = 1.1;
   }
 });
 
@@ -82,10 +75,7 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
- copilot/implement-potential-growth-and-fix-convert-button
 // Round to 8 decimal places to avoid floating-point drift.
-
- main
 function round8(n) {
   return Math.round(n * 1e8) / 1e8;
 }
@@ -93,11 +83,6 @@ function round8(n) {
 function createPlayer(name, initialFlark = 10, initialPotential = 0) {
   const id = Math.random().toString(36).slice(2, 10);
   const potential = state.players.length < 20 ? 20 : initialPotential || 0;
- copilot/implement-potential-growth-and-fix-convert-button
-  // Default multiplier 1.1 makes growth visible during testing; change as needed.
-
-  // Default multiplier 1.1 gives visible growth during testing; change to 1.0 for production.
- main
   const player = { id, name, flark: initialFlark, potential, multiplier: 1.1 };
   state.players.push(player);
   return player;
@@ -230,19 +215,10 @@ const TESTING_DECAY_INTERVAL_MS = 10_000; // TODO: revert to 60 * 60 * 1000 afte
 setInterval(() => {
   state.players.forEach(p => {
     p.flark = Math.max(0, p.flark - 1);
+    if (p.flark === 0) p.potential = 0;
   });
   broadcastState();
 }, TESTING_DECAY_INTERVAL_MS);
-
- copilot/implement-potential-growth-and-fix-convert-button
-// Potential growth: multiply each player's potential by their multiplier every tick.
-const POTENTIAL_TICK_MS = 10_000; // TODO: revert to 3_600_000 (1 hour) after testing
-setInterval(() => {
-  let changed = false;
-  state.players.forEach(p => {
-    const pot = Number(p.potential) || 0;
-    const mult = Number(p.multiplier);
-    if (!Number.isFinite(mult) || mult <= 0) return;
 
 // Potential growth: every tick multiply each player's potential by their multiplier.
 const POTENTIAL_TICK_MS = 10_000; // TODO: revert to 60 * 60 * 1000 (1 hour) after testing
@@ -252,7 +228,6 @@ setInterval(() => {
     const pot = Number(p.potential);
     const mult = Number(p.multiplier);
     if (!Number.isFinite(pot) || !Number.isFinite(mult) || mult <= 0 || pot === 0) return;
- main
     const next = round8(pot * mult);
     if (next !== p.potential) {
       p.potential = next;
