@@ -67,7 +67,7 @@ const users = loaded.users;
 // Backfill multiplier for players saved before this field was introduced.
 state.players.forEach(p => {
   if (typeof p.multiplier !== 'number' || !Number.isFinite(p.multiplier)) {
-    p.multiplier = 1.1;
+    p.multiplier = 1.0;
   }
 });
 
@@ -80,10 +80,19 @@ function round8(n) {
   return Math.round(n * 1e8) / 1e8;
 }
 
+// Multiplier derived from current Glark (flark): default x1.0, +0.5 per 50 Glark.
+// e.g. 0–49 Glark → x1.0, 50–99 → x1.5, 100–149 → x2.0, etc.
+function computeMultiplierFromGlark(glark) {
+  const g = Number(glark);
+  if (!Number.isFinite(g) || g < 0) return 1.0;
+  return 1.0 + 0.5 * Math.floor(g / 50);
+}
+
 function createPlayer(name, initialFlark = 10, initialPotential = 0) {
   const id = Math.random().toString(36).slice(2, 10);
-  const potential = state.players.length < 20 ? 20 : initialPotential || 0;
-  const player = { id, name, flark: initialFlark, potential, multiplier: 1.1 };
+  // First 20 players get 50 potential; everyone after starts at 0.
+  const potential = state.players.length < 20 ? 50 : 0;
+  const player = { id, name, flark: initialFlark, potential, multiplier: 1.0 };
   state.players.push(player);
   return player;
 }
@@ -188,6 +197,12 @@ io.on('connection', socket => {
     if (from.flark < amountN) return;
     if (from.flark - amountN < 10) return;
     from.flark -= amountN;
+    // Defensive: zero out potential if flark somehow reaches 0 (guard above
+    // currently prevents going below 10, but this future-proofs the rule).
+    if (from.flark <= 0) {
+      from.flark = 0;
+      from.potential = 0;
+    }
     to.potential += amountN;
     addTransaction(from.name, to.name, amountN);
     broadcastState();
@@ -220,14 +235,20 @@ setInterval(() => {
   broadcastState();
 }, TESTING_DECAY_INTERVAL_MS);
 
-// Potential growth: every tick multiply each player's potential by their multiplier.
-const POTENTIAL_TICK_MS = 10_000; // TODO: revert to 60 * 60 * 1000 (1 hour) after testing
+// Potential growth: every tick recompute multiplier from Glark and multiply potential.
+// TODO: revert POTENTIAL_TICK_MS to 3_600_000 (1 hour) after testing.
+const POTENTIAL_TICK_MS = 10_000; // 10 s for testing
 setInterval(() => {
   let changed = false;
   state.players.forEach(p => {
+    // Recompute multiplier from current Glark each tick.
+    const mult = computeMultiplierFromGlark(p.flark);
+    if (p.multiplier !== mult) {
+      p.multiplier = mult;
+      changed = true;
+    }
     const pot = Number(p.potential);
-    const mult = Number(p.multiplier);
-    if (!Number.isFinite(pot) || !Number.isFinite(mult) || mult <= 0 || pot === 0) return;
+    if (!Number.isFinite(pot) || pot === 0) return;
     const next = round8(pot * mult);
     if (next !== p.potential) {
       p.potential = next;
@@ -240,7 +261,10 @@ setInterval(() => {
 // quick debug timer if env set.
 if (process.env.DEBUG_QUICK) {
   setInterval(() => {
-    state.players.forEach(p => { p.flark = Math.max(0, p.flark - 1); });
+    state.players.forEach(p => {
+      p.flark = Math.max(0, p.flark - 1);
+      if (p.flark === 0) p.potential = 0;
+    });
     broadcastState();
   }, 10000);
 }
