@@ -9,6 +9,46 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(__dirname));
+app.use(express.json());
+
+// ---------------------------------------------------------------------------
+// Admin-only reset endpoint – protected by ADMIN_RESET_TOKEN env variable.
+// Normal players have no UI access to this; it is intended for admin use only.
+//
+// Usage (replace <token> with the value of your ADMIN_RESET_TOKEN env var):
+//   curl -X POST https://<your-render-url>/admin/reset-save \
+//        -H "x-admin-token: <token>"
+// ---------------------------------------------------------------------------
+app.post('/admin/reset-save', (req, res) => {
+  const adminToken = process.env.ADMIN_RESET_TOKEN;
+  const provided = req.headers['x-admin-token'];
+  if (!adminToken || !provided) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+  // Use constant-time comparison to prevent timing-based token enumeration.
+  const tokBuf = Buffer.from(adminToken);
+  const reqBuf = Buffer.from(provided);
+  const tokenMatch =
+    tokBuf.length === reqBuf.length && crypto.timingSafeEqual(tokBuf, reqBuf);
+  if (!tokenMatch) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+  // Clear all runtime state and users, then persist the empty slate.
+  state.players.length = 0;
+  state.transactions.length = 0;
+  state.chatRooms[1] = [];
+  state.chatRooms[2] = [];
+  state.chatRooms[3] = [];
+  for (const key of Object.keys(users)) delete users[key];
+  // Clear socket.user on every connected socket so stale references can't
+  // be used to perform actions on the now-empty state.
+  for (const [, s] of io.sockets.sockets) s.user = null;
+  createPlayer('Alice', 10, 0);
+  createPlayer('Bob', 10, 0);
+  createPlayer('Carmen', 10, 0);
+  broadcastState();
+  res.json({ success: true });
+});
 
 // ---------------------------------------------------------------------------
 // Persistent state – loaded from disk on startup, saved after every mutation.
@@ -97,29 +137,6 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('reset_save', callback => {
-    // Only allow a logged-in user to trigger a reset.
-    if (!socket.user) {
-      if (typeof callback === 'function') callback({ success: false, message: 'Not authenticated' });
-      return;
-    }
-    // Clear all runtime state and users, then persist the empty slate.
-    state.players.length = 0;
-    state.transactions.length = 0;
-    state.chatRooms[1] = [];
-    state.chatRooms[2] = [];
-    state.chatRooms[3] = [];
-    for (const key of Object.keys(users)) delete users[key];
-    // Clear socket.user on every connected socket so stale references can't
-    // be used to perform actions on the now-empty state.
-    for (const [, s] of io.sockets.sockets) s.user = null;
-    createPlayer('Alice', 10, 0);
-    createPlayer('Bob', 10, 0);
-    createPlayer('Carmen', 10, 0);
-    broadcastState();
-    if (typeof callback === 'function') callback({ success: true });
-  });
-
   socket.on('login', ({ username, password }, callback) => {
     const result = loginUser(username, password);
     if (result.success) {
@@ -205,4 +222,9 @@ if (state.players.length === 0) {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Glark server running on http://localhost:${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Glark server running on http://localhost:${PORT}`);
+  if (!process.env.ADMIN_RESET_TOKEN) {
+    console.warn('WARNING: ADMIN_RESET_TOKEN is not set. The /admin/reset-save endpoint will reject all requests.');
+  }
+});
