@@ -97,29 +97,6 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('reset_save', callback => {
-    // Only allow a logged-in user to trigger a reset.
-    if (!socket.user) {
-      if (typeof callback === 'function') callback({ success: false, message: 'Not authenticated' });
-      return;
-    }
-    // Clear all runtime state and users, then persist the empty slate.
-    state.players.length = 0;
-    state.transactions.length = 0;
-    state.chatRooms[1] = [];
-    state.chatRooms[2] = [];
-    state.chatRooms[3] = [];
-    for (const key of Object.keys(users)) delete users[key];
-    // Clear socket.user on every connected socket so stale references can't
-    // be used to perform actions on the now-empty state.
-    for (const [, s] of io.sockets.sockets) s.user = null;
-    createPlayer('Alice', 10, 0);
-    createPlayer('Bob', 10, 0);
-    createPlayer('Carmen', 10, 0);
-    broadcastState();
-    if (typeof callback === 'function') callback({ success: true });
-  });
-
   socket.on('login', ({ username, password }, callback) => {
     const result = loginUser(username, password);
     if (result.success) {
