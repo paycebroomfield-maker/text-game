@@ -218,8 +218,13 @@ function confirmTransfer() {
     return;
   }
 
-  socket.emit('send_potential', { fromId: sender.id, toId: transferTargetPlayer.id, amount });
-  closeTransfer();
+  socket.emit('send_potential', { fromId: sender.id, toId: transferTargetPlayer.id, amount }, response => {
+    if (response && !response.success) {
+      showToast(response.message);
+    } else {
+      closeTransfer();
+    }
+  });
 }
 
 function convertPotential() {

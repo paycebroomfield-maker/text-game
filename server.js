@@ -216,18 +216,20 @@ io.on('connection', socket => {
     broadcastState();
   });
 
-  socket.on('send_potential', ({ fromId, toId, amount }) => {
-    if (!socket.user || socket.user.playerId !== fromId) return;
+  socket.on('send_potential', ({ fromId, toId, amount }, callback) => {
+    const respond = (typeof callback === 'function') ? callback : () => {};
+    if (!socket.user || socket.user.playerId !== fromId) return respond({ success: false, message: 'Unauthorized' });
     const from = resolvePlayerById(fromId);
     const to = resolvePlayerById(toId);
     const amountN = Number(amount);
-    if (!from || !to || !Number.isFinite(amountN) || amountN <= 0) return;
-    if (from.flark < 50) return;
-    if (from.flark - amountN < 50) return;
+    if (!from || !to || !Number.isFinite(amountN) || amountN <= 0) return respond({ success: false, message: 'Invalid transfer' });
+    if (from.flark < 50) return respond({ success: false, message: 'You need at least 50 Glark to transfer.' });
+    if (from.flark - amountN < 50) return respond({ success: false, message: 'You must keep at least 50 Glark after transferring.' });
     from.flark -= amountN;
     to.potential += amountN;
     addTransaction(from.name, to.name, amountN);
     broadcastState();
+    respond({ success: true });
   });
 
   socket.on('send_chat', ({ playerId, room, text }) => {
