@@ -213,12 +213,10 @@ function confirmTransfer() {
     showToast('Not enough Glark to send');
     return;
   }
-  if (sender.flark - amount < 10) {
-    showToast('You must keep at least 10 Glark');
-    return;
-  }
 
-  socket.emit('send_potential', { fromId: sender.id, toId: transferTargetPlayer.id, amount });
+  socket.emit('send_potential', { fromId: sender.id, toId: transferTargetPlayer.id, amount }, res => {
+    if (res && res.success === false) showToast(res.message || 'Transfer failed');
+  });
   closeTransfer();
 }
 
