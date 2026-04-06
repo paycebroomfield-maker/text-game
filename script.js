@@ -47,8 +47,7 @@ function format8(n) {
   const x = Number(n);
   if (!Number.isFinite(x)) return '0';
   let s = x.toFixed(8);
-  s = s.replace(/0+$/, '');
-  s = s.replace(/\.$/, '');
+  s = s.replace(/\.?0+$/, '');
   return s;
 }
 
