@@ -41,11 +41,14 @@ const elements = {
   cancelTransfer: document.getElementById('cancelTransfer'),
 };
 
-// Multiplier formula (mirrors server): default x1.0, +0.5 per 50 Glark.
-function calculateMultiplier(glark) {
-  const g = Number(glark) || 0;
-  if (g < 0) return 1.0;
-  return 1.0 + 0.5 * Math.floor(g / 50);
+// Format a number for display: round to 8 decimal places max, then trim trailing zeros.
+// Multiplier increments are small (0.001 per 10 potential), so toFixed(2) looked stuck at 1.00.
+function format8(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return '0';
+  let s = x.toFixed(8);
+  s = s.replace(/\.?0+$/, '');
+  return s;
 }
 
 function getCurrentPlayer() {
@@ -64,10 +67,12 @@ function refreshStatus() {
     elements.multiplierValue.textContent = 'x1';
     return;
   }
-  elements.flarkValue.textContent = player.flark.toFixed(1);
-  elements.potentialValue.textContent = player.potential.toFixed(1);
-  const mult = typeof player.multiplier === 'number' ? player.multiplier : 1;
-  elements.multiplierValue.textContent = `x${mult.toFixed(2)}`;
+  elements.flarkValue.textContent = format8(player.flark);
+  elements.potentialValue.textContent = format8(player.potential);
+  const mult = (typeof player.multiplier === 'number' && Number.isFinite(player.multiplier))
+    ? player.multiplier
+    : 1;
+  elements.multiplierValue.textContent = `x${format8(mult)}`;
 }
 
 function clickTransactionName(name) {
