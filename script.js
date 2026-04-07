@@ -22,11 +22,8 @@ const elements = {
   authLoginBtn: document.getElementById('authLoginBtn'),
   authRegisterBtn: document.getElementById('authRegisterBtn'),
   authMessage: document.getElementById('authMessage'),
-  flarkValue: document.getElementById('flarkValue'),
-  potentialValue: document.getElementById('potentialValue'),
+  glarkValue: document.getElementById('glarkValue'),
   multiplierValue: document.getElementById('multiplierValue'),
-  potentialBlock: document.getElementById('potentialBlock'),
-  convertPotentialBtn: document.getElementById('convertPotentialBtn'),
   transactionsList: document.getElementById('transactionsList'),
   txFilter: document.getElementById('txFilter'),
   chatFilter: document.getElementById('chatFilter'),
@@ -42,7 +39,7 @@ const elements = {
 };
 
 // Format a number for display: round to 8 decimal places max, then trim trailing zeros.
-// Multiplier increments are small (0.001 per 10 potential), so toFixed(2) looked stuck at 1.00.
+// Multiplier increments are small (0.0001 per glark bucket of 10), so toFixed(2) looked stuck at 1.00.
 function format8(n) {
   const x = Number(n);
   if (!Number.isFinite(x)) return '0';
@@ -62,13 +59,11 @@ function refreshPlayerGrid() {
 function refreshStatus() {
   const player = getCurrentPlayer();
   if (!player) {
-    elements.flarkValue.textContent = '0';
-    elements.potentialValue.textContent = '0';
+    elements.glarkValue.textContent = '0';
     elements.multiplierValue.textContent = 'x1';
     return;
   }
-  elements.flarkValue.textContent = format8(player.flark);
-  elements.potentialValue.textContent = format8(player.potential);
+  elements.glarkValue.textContent = format8(player.glark);
   const mult = (typeof player.multiplier === 'number' && Number.isFinite(player.multiplier))
     ? player.multiplier
     : 1;
@@ -134,7 +129,7 @@ function refreshTransactions() {
       p.appendChild(fromNode);
       p.appendChild(document.createTextNode(' gave '));
       p.appendChild(toNode);
-      p.appendChild(document.createTextNode(` ${amount.toFixed(1)} Glark (to Potential)`));
+      p.appendChild(document.createTextNode(` ${amount.toFixed(1)} Glark`));
     } else {
       p.textContent = tx.text || '';
     }
@@ -209,28 +204,22 @@ function confirmTransfer() {
     showToast('Enter a valid positive amount');
     return;
   }
-  if (amount > sender.flark) {
-    showToast('Not enough Glark to send');
+  if (amount > sender.glark) {
+    showToast('Not enough Glark to send.');
     return;
   }
-  if (sender.flark - amount < 10) {
-    showToast('You must keep at least 10 Glark');
+  if (sender.glark - amount < 10) {
+    showToast('You must keep at least 10 Glark after transferring.');
     return;
   }
 
-  socket.emit('send_potential', { fromId: sender.id, toId: transferTargetPlayer.id, amount }, response => {
+  socket.emit('send_glark', { fromId: sender.id, toId: transferTargetPlayer.id, amount }, response => {
     if (response && !response.success) {
       showToast(response.message);
     } else {
       closeTransfer();
     }
   });
-}
-
-function convertPotential() {
-  const player = getCurrentPlayer();
-  if (!player || player.potential <= 0) return;
-  socket.emit('convert_potential', { playerId: player.id });
 }
 
 function setupEvents() {
@@ -266,16 +255,6 @@ function setupEvents() {
     });
   });
 
-  elements.potentialBlock.addEventListener('click', e => {
-    if (e.target.closest('#convertPotentialBtn')) return;
-    openTransfer(currentPlayerId);
-  });
-  elements.convertPotentialBtn.addEventListener('click', e => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    convertPotential();
-  });
   elements.txFilter.addEventListener('input', refreshTransactions);
   elements.chatFilter.addEventListener('input', refreshChat);
 
