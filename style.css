@@ -44,6 +44,7 @@ main { display:grid; grid-template-columns: 260px 1fr; gap:0.75rem; }
 .modal-content { background:#0c1331; border:1px solid #465986; border-radius:10px; padding:1rem; width:min(320px,95%); }
 .modal-content h3 { margin-top:0; }
 .modal-content p { margin:0.5rem 0; }
+.transfer-hint { font-size:0.8rem; color:#99a2c3; }
 .modal-actions { margin-top:0.75rem; display:flex; gap:0.5rem; justify-content:flex-end; }
 .modal-actions button { padding:0.35rem 0.7rem; border-radius:6px; border:none; cursor:pointer; }
 #confirmTransfer { background:#27b76b; color:#fff; }

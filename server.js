@@ -246,8 +246,8 @@ io.on('connection', socket => {
   socket.on('disconnect', () => console.log('client disconnected', socket.id));
 });
 
-// Hourly decay; temporarily set to 10 s for testing (revert to 60 * 60 * 1000).
-const GLARK_DECAY_INTERVAL_MS = 10_000;
+// Hourly decay: each player loses 1 Glark per hour (floored at 0).
+const GLARK_DECAY_INTERVAL_MS = 60 * 60 * 1000;
 setInterval(() => {
   state.players.forEach(p => {
     p.glark = round8(Math.max(0, p.glark - 1));
@@ -259,8 +259,7 @@ setInterval(() => {
 // Glark growth: multiplier is derived from the *new* glark value.
 // Use a small fixed-point iteration to solve newG = round8(oldG * mult(newG))
 // where mult(x) uses the 10-point bucket formula.
-// TODO: revert GLARK_GROWTH_INTERVAL_MS to 3_600_000 (1 hour) after testing.
-const GLARK_GROWTH_INTERVAL_MS = 10_000;
+const GLARK_GROWTH_INTERVAL_MS = 60 * 60 * 1000;
 setInterval(() => {
   let changed = false;
   state.players.forEach(p => {
