@@ -1,10 +1,9 @@
 {
-  "name": "flark-exchange",
+  "name": "glark-exchange",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "node server.js",
-    "start:debug": "DEBUG_QUICK=1 node server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^5.2.1",

@@ -69,20 +69,25 @@ function round8(n) {
   return Math.round(n * 1e8) / 1e8;
 }
 
-// Multiplier derived from current potential using 10-point bucket:
-// bucket = floor(potential / 10) * 10; multiplier = 1 + 0.0001 * bucket.
-// Multiplier changes only at potential 0, 10, 20, 30, …
-function computeMultiplierFromPotential(potential) {
-  const p = Number(potential);
-  if (!Number.isFinite(p) || p < 0) return 1.0;
-  const bucket = Math.floor(p / 10) * 10;
+// Multiplier derived from current glark using 10-point bucket:
+// bucket = floor(glark / 10) * 10; multiplier = 1 + 0.0001 * bucket.
+// Multiplier changes only at glark 0, 10, 20, 30, …
+function computeMultiplierFromGlark(glark) {
+  const g = Number(glark);
+  if (!Number.isFinite(g) || g < 0) return 1.0;
+  const bucket = Math.floor(g / 10) * 10;
   return 1.0 + 0.0001 * bucket;
 }
 
-// Backfill multiplier for players saved before this field was introduced,
-// and recompute for all existing players using potential-based formula.
+// Migrate persisted players: rename flark→glark, remove potential.
+// Recompute multiplier from glark for all players.
 state.players.forEach(p => {
-  p.multiplier = computeMultiplierFromPotential(p.potential);
+  if (p.glark === undefined) {
+    p.glark = typeof p.flark === 'number' ? p.flark : 10;
+  }
+  delete p.flark;
+  delete p.potential;
+  p.multiplier = computeMultiplierFromGlark(p.glark);
   if (typeof p.multiplier !== 'number' || !Number.isFinite(p.multiplier)) {
     p.multiplier = 1.0;
   }
@@ -92,31 +97,30 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-function createPlayer(name, initialFlark = 10, initialPotential = 0) {
+// In-memory count of players created since server start. Resets on every deploy/restart.
+// The first 20 players created in each server lifetime receive the starter bonus (50 glark).
+let playersCreatedThisRun = 0;
+
+function createPlayer(name, initialGlark = 10) {
   const id = Math.random().toString(36).slice(2, 10);
 
-  // First 20 players are "starters": 50 Glark + 50 Potential.
-  // Everyone after uses initialFlark (default 10) and starts with 0 potential.
-  const isStarter = state.players.length < 20;
-  const flark = isStarter ? 50 : initialFlark;
-  const potential = isStarter ? 50 : initialPotential;
+  // First 20 players created since server start receive 50 Glark; everyone else gets 10.
+  const glark = playersCreatedThisRun < 20 ? 50 : initialGlark;
+  playersCreatedThisRun++;
 
   const player = {
     id,
     name,
-    flark,
-    potential,
-    multiplier: 1.0,
+    glark,
+    multiplier: computeMultiplierFromGlark(glark),
   };
-
-  player.multiplier = computeMultiplierFromPotential(player.potential);
 
   state.players.push(player);
   return player;
 }
 
 function addTransaction(from, to, amount) {
-  const text = `${from} gave ${to} ${amount.toFixed(1)} Glark (to Potential)`;
+  const text = `${from} gave ${to} ${amount.toFixed(1)} Glark`;
   state.transactions.unshift({
     from,
     to,
@@ -152,8 +156,8 @@ function registerUser(username, password) {
     return { success: false, message: 'Username already exists' };
   }
 
-  // createPlayer() now owns the starting-potential rule.
-  const player = createPlayer(username.trim(), 10);
+  // createPlayer() owns the starting-balance rule.
+  const player = createPlayer(username.trim());
   users[key] = {
     username: username.trim(),
     passwordHash: hashPassword(password),
@@ -207,26 +211,19 @@ io.on('connection', socket => {
     broadcastState();
   });
 
-  socket.on('convert_potential', ({ playerId }) => {
-    if (!socket.user || socket.user.playerId !== playerId) return;
-    const player = resolvePlayerById(playerId);
-    if (!player || player.potential <= 0) return;
-    player.flark += player.potential;
-    player.potential = 0;
-    broadcastState();
-  });
-
-  socket.on('send_potential', ({ fromId, toId, amount }, callback) => {
+  socket.on('send_glark', ({ fromId, toId, amount }, callback) => {
     const respond = (typeof callback === 'function') ? callback : () => {};
     if (!socket.user || socket.user.playerId !== fromId) return respond({ success: false, message: 'Unauthorized' });
     const from = resolvePlayerById(fromId);
     const to = resolvePlayerById(toId);
     const amountN = Number(amount);
     if (!from || !to || !Number.isFinite(amountN) || amountN <= 0) return respond({ success: false, message: 'Invalid transfer' });
-    if (from.flark < 50) return respond({ success: false, message: 'You need at least 50 Glark to transfer.' });
-    if (from.flark - amountN < 50) return respond({ success: false, message: 'You must keep at least 50 Glark after transferring.' });
-    from.flark -= amountN;
-    to.potential += amountN;
+    if (from.glark < amountN) return respond({ success: false, message: 'Not enough Glark to send.' });
+    if (from.glark - amountN < 10) return respond({ success: false, message: 'You must keep at least 10 Glark after transferring.' });
+    from.glark = round8(from.glark - amountN);
+    to.glark = round8(to.glark + amountN);
+    from.multiplier = computeMultiplierFromGlark(from.glark);
+    to.multiplier = computeMultiplierFromGlark(to.glark);
     addTransaction(from.name, to.name, amountN);
     broadcastState();
     respond({ success: true });
@@ -249,26 +246,27 @@ io.on('connection', socket => {
   socket.on('disconnect', () => console.log('client disconnected', socket.id));
 });
 
-// hourly decay; temporarily set to 10 s for testing (was 60 * 60 * 1000).
-const TESTING_DECAY_INTERVAL_MS = 10_000; // TODO: revert to 60 * 60 * 1000 after testing
+// Hourly decay; temporarily set to 10 s for testing (revert to 60 * 60 * 1000).
+const GLARK_DECAY_INTERVAL_MS = 10_000;
 setInterval(() => {
   state.players.forEach(p => {
-    p.flark = Math.max(0, p.flark - 1);
+    p.glark = round8(Math.max(0, p.glark - 1));
+    p.multiplier = computeMultiplierFromGlark(p.glark);
   });
   broadcastState();
-}, TESTING_DECAY_INTERVAL_MS);
+}, GLARK_DECAY_INTERVAL_MS);
 
-// Potential growth: Option A – multiplier is derived from the *new* potential.
-// Use a small fixed-point iteration to solve newP = round8(oldP * mult(newP))
+// Glark growth: multiplier is derived from the *new* glark value.
+// Use a small fixed-point iteration to solve newG = round8(oldG * mult(newG))
 // where mult(x) uses the 10-point bucket formula.
-// TODO: revert POTENTIAL_TICK_MS to 3_600_000 (1 hour) after testing.
-const POTENTIAL_TICK_MS = 10_000; // 10 s for testing
+// TODO: revert GLARK_GROWTH_INTERVAL_MS to 3_600_000 (1 hour) after testing.
+const GLARK_GROWTH_INTERVAL_MS = 10_000;
 setInterval(() => {
   let changed = false;
   state.players.forEach(p => {
-    const oldP = Number(p.potential) || 0;
+    const oldG = Number(p.glark) || 0;
 
-    if (oldP === 0) {
+    if (oldG === 0) {
       if (p.multiplier !== 1) {
         p.multiplier = 1;
         changed = true;
@@ -276,22 +274,20 @@ setInterval(() => {
       return;
     }
 
-    // Fixed-point iteration: start from oldP, converge on newP where
-    // multiplier is derived from the *new* potential bucket.
-    // 3 iterations are sufficient: bucket size is 10 and potential grows
-    // by at most ~0.001× per tick, so the bucket rarely changes mid-iteration.
+    // Fixed-point iteration: start from oldG, converge on newG where
+    // multiplier is derived from the *new* glark bucket.
     const FIXEDPOINT_ITERATIONS = 3;
-    let guess = oldP;
+    let guess = oldG;
     for (let i = 0; i < FIXEDPOINT_ITERATIONS; i++) {
       const bucket = Math.floor(guess / 10) * 10;
       const mult = 1 + 0.0001 * bucket;
-      guess = round8(oldP * mult);
+      guess = round8(oldG * mult);
     }
 
-    const newMultiplier = computeMultiplierFromPotential(guess);
+    const newMultiplier = computeMultiplierFromGlark(guess);
 
-    if (p.potential !== guess) {
-      p.potential = guess;
+    if (p.glark !== guess) {
+      p.glark = guess;
       changed = true;
     }
     if (p.multiplier !== newMultiplier) {
@@ -300,17 +296,7 @@ setInterval(() => {
     }
   });
   if (changed) broadcastState();
-}, POTENTIAL_TICK_MS);
-
-// quick debug timer if env set.
-if (process.env.DEBUG_QUICK) {
-  setInterval(() => {
-    state.players.forEach(p => {
-      p.flark = Math.max(0, p.flark - 1);
-    });
-    broadcastState();
-  }, 10000);
-}
+}, GLARK_GROWTH_INTERVAL_MS);
 
 // Bootstrap initial players only when starting fresh (no persisted data).
 if (state.players.length === 0) {
