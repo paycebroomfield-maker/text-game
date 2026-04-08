@@ -7,7 +7,7 @@ let transferTargetPlayer = null;
 
 // Tick countdown state
 let nextTickAt = null;
-const tickTimerEl = document.getElementById('tickTimer');
+const tickValueEl = document.getElementById('tickValue');
 
 function updateTickDisplay() {
   if (!nextTickAt) return;
@@ -15,7 +15,7 @@ function updateTickDisplay() {
   const totalSecs = Math.ceil(msLeft / 1000);
   const mm = String(Math.floor(totalSecs / 60)).padStart(2, '0');
   const ss = String(totalSecs % 60).padStart(2, '0');
-  tickTimerEl.textContent = `Next tick: ${mm}:${ss}`;
+  tickValueEl.textContent = `${mm}:${ss}`;
 }
 
 setInterval(updateTickDisplay, 1000);

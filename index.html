@@ -37,6 +37,10 @@
           <span>Multiplier</span>
           <strong id="multiplierValue">x1</strong>
         </div>
+        <div class="stat-block">
+          <span>Next Tick</span>
+          <strong id="tickValue">--:--</strong>
+        </div>
       </aside>
 
       <section class="activity">
@@ -85,7 +89,13 @@
   </div>
 
   <div id="toastContainer" class="toast-container"></div>
-  <div id="tickTimer" class="tick-timer">Next tick: --:--</div>
+
+  <div id="itemsBox" class="box items-box">
+    <div class="box-header">
+      <h2>Items</h2>
+    </div>
+    <div class="items-list"></div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
