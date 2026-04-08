@@ -55,6 +55,6 @@ main { display:grid; grid-template-columns: 260px 1fr; gap:0.75rem; }
 @keyframes toast-out { from { opacity:1; } to { opacity:0; } }
 .items-box { min-width: 240px; width: 280px; flex-shrink: 0; }
 .items-list { min-height: 60px; }
-.tx-items-row { display: flex; gap: 0.75rem; align-items: flex-start; }
+.tx-items-row { display: flex; gap: 0.75rem; align-items: stretch; }
 .tx-items-row .transactions { flex: 1; min-width: 0; }
 @media (max-width: 640px) { .tx-items-row { flex-direction: column; } .items-box { width: 100%; } }
