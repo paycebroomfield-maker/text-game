@@ -178,6 +178,7 @@ function loginUser(username, password) {
 
 io.on('connection', socket => {
   console.log('client connected', socket.id);
+  emitTickInfo(socket);
 
   socket.on('register', ({ username, password }, callback) => {
     const result = registerUser(username, password);
@@ -246,56 +247,51 @@ io.on('connection', socket => {
   socket.on('disconnect', () => console.log('client disconnected', socket.id));
 });
 
-// Hourly decay: each player loses 1 Glark per hour (floored at 0).
-const GLARK_DECAY_INTERVAL_MS = 60 * 60 * 1000;
-setInterval(() => {
-  state.players.forEach(p => {
-    p.glark = round8(Math.max(0, p.glark - 1));
-    p.multiplier = computeMultiplierFromGlark(p.glark);
-  });
-  broadcastState();
-}, GLARK_DECAY_INTERVAL_MS);
+// Single tick loop: runs every 2 minutes.
+// Each tick applies decay (-1 Glark, floored at 0) then growth (multiplier-based).
+const TICK_INTERVAL_MS = 120000;
+let nextTickAt = Date.now() + TICK_INTERVAL_MS;
 
-// Glark growth: multiplier is derived from the *new* glark value.
-// Use a small fixed-point iteration to solve newG = round8(oldG * mult(newG))
-// where mult(x) uses the 10-point bucket formula.
-const GLARK_GROWTH_INTERVAL_MS = 60 * 60 * 1000;
+function emitTickInfo(target) {
+  (target || io).emit('tick_info', { tickIntervalMs: TICK_INTERVAL_MS, nextTickAt });
+}
+
 setInterval(() => {
   let changed = false;
   state.players.forEach(p => {
-    const oldG = Number(p.glark) || 0;
+    // Decay: lose 1 Glark per tick, floored at 0.
+    const afterDecay = round8(Math.max(0, (Number(p.glark) || 0) - 1));
 
-    if (oldG === 0) {
-      if (p.multiplier !== 1) {
+    if (afterDecay === 0) {
+      if (p.glark !== 0 || p.multiplier !== 1) {
+        p.glark = 0;
         p.multiplier = 1;
         changed = true;
       }
       return;
     }
 
-    // Fixed-point iteration: start from oldG, converge on newG where
-    // multiplier is derived from the *new* glark bucket.
+    // Growth: fixed-point iteration to apply multiplier derived from new glark.
     const FIXEDPOINT_ITERATIONS = 3;
-    let guess = oldG;
+    let guess = afterDecay;
     for (let i = 0; i < FIXEDPOINT_ITERATIONS; i++) {
       const bucket = Math.floor(guess / 10) * 10;
       const mult = 1 + 0.0001 * bucket;
-      guess = round8(oldG * mult);
+      guess = round8(afterDecay * mult);
     }
 
     const newMultiplier = computeMultiplierFromGlark(guess);
 
-    if (p.glark !== guess) {
-      p.glark = guess;
-      changed = true;
-    }
-    if (p.multiplier !== newMultiplier) {
-      p.multiplier = newMultiplier;
-      changed = true;
-    }
+    if (p.glark !== guess) { p.glark = guess; changed = true; }
+    if (p.multiplier !== newMultiplier) { p.multiplier = newMultiplier; changed = true; }
   });
+
   if (changed) broadcastState();
-}, GLARK_GROWTH_INTERVAL_MS);
+  // Update nextTickAt after processing so the emitted timestamp reflects the
+  // true time until the next interval fires (minimises client drift).
+  nextTickAt = Date.now() + TICK_INTERVAL_MS;
+  emitTickInfo();
+}, TICK_INTERVAL_MS);
 
 // Bootstrap initial players only when starting fresh (no persisted data).
 if (state.players.length === 0) {

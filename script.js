@@ -5,6 +5,21 @@ let currentUsername = null;
 let activeChatRoom = 1;
 let transferTargetPlayer = null;
 
+// Tick countdown state
+let nextTickAt = null;
+const tickTimerEl = document.getElementById('tickTimer');
+
+function updateTickDisplay() {
+  if (!nextTickAt) return;
+  const msLeft = Math.max(0, nextTickAt - Date.now());
+  const totalSecs = Math.ceil(msLeft / 1000);
+  const mm = String(Math.floor(totalSecs / 60)).padStart(2, '0');
+  const ss = String(totalSecs % 60).padStart(2, '0');
+  tickTimerEl.textContent = `Next tick: ${mm}:${ss}`;
+}
+
+setInterval(updateTickDisplay, 1000);
+
 function showToast(message) {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
@@ -293,6 +308,11 @@ function setupEvents() {
   });
 
   socket.on('disconnect', () => console.warn('Disconnected from server'));
+
+  socket.on('tick_info', ({ nextTickAt: nta }) => {
+    nextTickAt = nta;
+    updateTickDisplay();
+  });
 }
 
 setupEvents();
