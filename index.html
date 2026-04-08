@@ -44,12 +44,21 @@
       </aside>
 
       <section class="activity">
-        <div class="box transactions">
-          <div class="box-header">
-            <h2>Transactions</h2>
-            <input id="txFilter" type="text" placeholder="Search transactions" />
+        <div class="tx-items-row">
+          <div class="box transactions">
+            <div class="box-header">
+              <h2>Transactions</h2>
+              <input id="txFilter" type="text" placeholder="Search transactions" />
+            </div>
+            <div id="transactionsList" class="log"></div>
           </div>
-          <div id="transactionsList" class="log"></div>
+
+          <div id="itemsBox" class="box items-box">
+            <div class="box-header">
+              <h2>Items</h2>
+            </div>
+            <div class="items-list"></div>
+          </div>
         </div>
 
         <div class="box chatgroup">
@@ -89,13 +98,6 @@
   </div>
 
   <div id="toastContainer" class="toast-container"></div>
-
-  <div id="itemsBox" class="box items-box">
-    <div class="box-header">
-      <h2>Items</h2>
-    </div>
-    <div class="items-list"></div>
-  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
