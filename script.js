@@ -4,7 +4,7 @@ let currentPlayerId = null;
 let currentUsername = null;
 let activeChatRoom = 1;
 let transferTargetPlayer = null;
-let itemTransferItem = null;
+let itemSelectionTarget = null;
 
 // Tick countdown state
 let nextTickAt = null;
@@ -242,57 +242,79 @@ function refreshItems() {
     list.appendChild(p);
     return;
   }
-  player.items.forEach(item => {
-    const card = document.createElement('div');
-    card.className = 'item-card';
-    const nameEl = document.createElement('span');
-    nameEl.className = 'item-name';
-    nameEl.textContent = `🏆 ${Number(item.milestone).toLocaleString()} Glark Trophy`;
-    const btn = document.createElement('button');
-    btn.className = 'item-send-btn';
-    btn.textContent = 'Send';
-    btn.onclick = () => openItemTransfer(item);
-    card.appendChild(nameEl);
-    card.appendChild(btn);
-    list.appendChild(card);
+  const count = player.items.length;
+  const size = computeCircleSize(count);
+  // Most recently acquired first.
+  const itemsToShow = [...player.items].reverse();
+  itemsToShow.forEach(item => {
+    const circle = document.createElement('div');
+    circle.className = `item-circle ${getItemColorClass(item.milestone)}`;
+    circle.style.width = `${size}px`;
+    circle.style.height = `${size}px`;
+    const milestoneStr = Number(item.milestone).toLocaleString();
+    const tooltipText = item.placement
+      ? `${milestoneStr} Glark Trophy #${item.placement}`
+      : `${milestoneStr} Glark Trophy`;
+    circle.dataset.tooltip = tooltipText;
+    if (itemSelectionTarget) {
+      circle.classList.add('selectable');
+      circle.onclick = () => transferItem(item);
+    }
+    list.appendChild(circle);
   });
 }
 
-function openItemTransfer(item) {
-  const sender = getCurrentPlayer();
-  if (!sender) return;
-  itemTransferItem = item;
-  document.getElementById('itemTransferName').textContent =
-    `🏆 ${Number(item.milestone).toLocaleString()} Glark Trophy`;
-  const select = document.getElementById('itemTransferTarget');
-  select.innerHTML = '<option value="">Select recipient…</option>';
-  gameState.players.forEach(p => {
-    if (p.id === sender.id) return;
-    const opt = document.createElement('option');
-    opt.value = p.id;
-    opt.textContent = p.name;
-    select.appendChild(opt);
-  });
-  document.getElementById('itemTransferModal').classList.remove('hidden');
+function getItemColorClass(milestone) {
+  if (milestone >= 1000000000) return 'item-circle-white';
+  if (milestone >= 1000000) return 'item-circle-green';
+  if (milestone >= 1000) return 'item-circle-blue';
+  return 'item-circle-yellow';
 }
 
-function closeItemTransfer() {
-  itemTransferItem = null;
-  document.getElementById('itemTransferModal').classList.add('hidden');
+function computeCircleSize(count) {
+  const list = document.querySelector('#itemsBox .items-list');
+  const MAX_SIZE = 44;
+  const MIN_SIZE = 18;
+  const GAP = 4;
+  if (count === 0) return MAX_SIZE;
+  const w = (list && list.clientWidth > 0) ? list.clientWidth : 248;
+  const h = 288; // target height ≈ max-height minus small padding
+  for (let size = MAX_SIZE; size >= MIN_SIZE; size -= 2) {
+    const perRow = Math.floor((w + GAP) / (size + GAP));
+    if (perRow <= 0) continue;
+    const rows = Math.ceil(count / perRow);
+    if (rows * (size + GAP) <= h) return size;
+  }
+  // If container is too narrow to compute, fall back to MIN_SIZE.
+  return MIN_SIZE;
 }
 
-function confirmItemTransfer() {
+function enterItemSelectionMode(targetPlayer) {
+  itemSelectionTarget = targetPlayer;
+  document.getElementById('selectionTargetName').textContent = targetPlayer.name;
+  document.getElementById('selectionModeBar').classList.remove('hidden');
+  refreshItems();
+}
+
+function exitItemSelectionMode() {
+  itemSelectionTarget = null;
+  document.getElementById('selectionModeBar').classList.add('hidden');
+  refreshItems();
+}
+
+function transferItem(item) {
   const sender = getCurrentPlayer();
-  const toId = document.getElementById('itemTransferTarget').value;
-  if (!sender || !itemTransferItem || !toId) {
-    showToast('Please select a recipient.');
+  if (!sender || !itemSelectionTarget) return;
+  const fee = item.milestone / 2;
+  if (sender.glark < fee) {
+    showToast(`Not enough Glark to pay the transfer fee of ${Number(fee).toLocaleString()} Glark.`);
     return;
   }
-  socket.emit('send_item', { fromId: sender.id, itemId: itemTransferItem.id, toId }, response => {
+  socket.emit('send_item', { fromId: sender.id, itemId: item.id, toId: itemSelectionTarget.id }, response => {
     if (response && !response.success) {
       showToast(response.message);
     } else {
-      closeItemTransfer();
+      exitItemSelectionMode();
     }
   });
 }
@@ -306,6 +328,13 @@ function openTransfer(targetId) {
   const targetLabel = transferTargetPlayer.id === sender.id ? 'yourself' : transferTargetPlayer.name;
   elements.transferTarget.textContent = `${sender.name} → ${targetLabel}`;
   elements.transferAmount.value = '';
+  // Show "Send Item" button only when sender has items and target is not self.
+  const sendItemBtn = document.getElementById('sendItemBtn');
+  const hasItems = Array.isArray(sender.items) && sender.items.length > 0;
+  const isSelf = transferTargetPlayer.id === sender.id;
+  if (sendItemBtn) {
+    sendItemBtn.classList.toggle('hidden', !hasItems || isSelf);
+  }
   elements.transferModal.classList.remove('hidden');
 }
 
@@ -393,8 +422,18 @@ function setupEvents() {
   elements.cancelTransfer.addEventListener('click', closeTransfer);
   elements.confirmTransfer.addEventListener('click', confirmTransfer);
 
-  document.getElementById('cancelItemTransfer').addEventListener('click', closeItemTransfer);
-  document.getElementById('confirmItemTransfer').addEventListener('click', confirmItemTransfer);
+  document.getElementById('sendItemBtn').addEventListener('click', () => {
+    const sender = getCurrentPlayer();
+    if (!sender || !Array.isArray(sender.items) || sender.items.length === 0) {
+      showToast('You have no items to send.');
+      return;
+    }
+    if (!transferTargetPlayer) return;
+    closeTransfer();
+    enterItemSelectionMode(transferTargetPlayer);
+  });
+
+  document.getElementById('cancelSelectionBtn').addEventListener('click', exitItemSelectionMode);
 
   socket.on('state', state => {
     gameState = state;

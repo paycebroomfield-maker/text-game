@@ -179,9 +179,9 @@ function checkTrophies(player) {
       // Award a tradable trophy item for this milestone.
       const itemId = crypto.randomBytes(8).toString('hex');
       if (!Array.isArray(player.items)) player.items = [];
-      player.items.push({ id: itemId, milestone });
       milestonePlacement[milestone] += 1;
       const placement = milestonePlacement[milestone];
+      player.items.push({ id: itemId, milestone, placement });
       for (const [, s] of io.sockets.sockets) {
         if (s.user && s.user.playerId === player.id) {
           s.emit('trophy', { milestone, placement });
@@ -291,7 +291,19 @@ io.on('connection', socket => {
     if (!Array.isArray(from.items)) from.items = [];
     const itemIndex = from.items.findIndex(it => it.id === itemId);
     if (itemIndex === -1) return respond({ success: false, message: 'Item not found' });
-    const [item] = from.items.splice(itemIndex, 1);
+    const item = from.items[itemIndex];
+    // Transfer fee is exactly half the milestone value, deducted from the sender.
+    const fee = item.milestone / 2;
+    if (from.glark < fee) {
+      return respond({
+        success: false,
+        message: `Not enough Glark to pay the transfer fee of ${Number(fee).toLocaleString()} Glark.`,
+      });
+    }
+    // Deduct fee and move item atomically.
+    from.glark = round8(from.glark - fee);
+    from.multiplier = computeMultiplierFromGlark(from.glark);
+    from.items.splice(itemIndex, 1);
     if (!Array.isArray(to.items)) to.items = [];
     to.items.push(item);
     const milestoneStr = Number(item.milestone).toLocaleString();
