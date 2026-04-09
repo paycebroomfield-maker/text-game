@@ -29,6 +29,38 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 3000);
 }
 
+// Trophy overlay – click-to-dismiss, queued so multiple milestones show one at a time.
+const trophyOverlay = document.getElementById('trophyOverlay');
+const trophyLabelEl = document.getElementById('trophyLabel');
+const trophyDescEl = document.getElementById('trophyDesc');
+let trophyQueue = [];
+let trophyVisible = false;
+
+function showNextTrophy() {
+  if (trophyQueue.length === 0) { trophyVisible = false; return; }
+  trophyVisible = true;
+  const { label, desc } = trophyQueue.shift();
+  trophyLabelEl.textContent = label;
+  trophyDescEl.textContent = desc;
+  trophyOverlay.classList.remove('hidden');
+  trophyOverlay.focus();
+}
+
+trophyOverlay.addEventListener('click', () => {
+  trophyOverlay.classList.add('hidden');
+  trophyVisible = false;
+  showNextTrophy();
+});
+
+trophyOverlay.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    trophyOverlay.classList.add('hidden');
+    trophyVisible = false;
+    showNextTrophy();
+  }
+});
+
 const elements = {
   authContainer: document.getElementById('authContainer'),
   gameContainer: document.getElementById('gameContainer'),
@@ -308,6 +340,11 @@ function setupEvents() {
   });
 
   socket.on('disconnect', () => console.warn('Disconnected from server'));
+
+  socket.on('milestone', milestones => {
+    trophyQueue.push(...milestones);
+    if (!trophyVisible) showNextTrophy();
+  });
 
   socket.on('tick_info', ({ nextTickAt: nta }) => {
     nextTickAt = nta;

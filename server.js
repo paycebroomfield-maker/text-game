@@ -64,6 +64,18 @@ const loaded = loadData({ state: defaultState, users: defaultUsers });
 const state = loaded.state;
 const users = loaded.users;
 
+// Milestones: lifetime-max glark thresholds that award a trophy.
+const MILESTONES = [
+  { threshold: 50,    label: 'Glark Novice',      desc: 'Reached 50 Glark lifetime!' },
+  { threshold: 100,   label: 'Glark Apprentice',   desc: 'Reached 100 Glark lifetime!' },
+  { threshold: 250,   label: 'Glark Journeyman',   desc: 'Reached 250 Glark lifetime!' },
+  { threshold: 500,   label: 'Glark Expert',       desc: 'Reached 500 Glark lifetime!' },
+  { threshold: 1000,  label: 'Glark Master',       desc: 'Reached 1000 Glark lifetime!' },
+  { threshold: 2500,  label: 'Glark Grand Master', desc: 'Reached 2500 Glark lifetime!' },
+  { threshold: 5000,  label: 'Glark Legend',       desc: 'Reached 5000 Glark lifetime!' },
+  { threshold: 10000, label: 'Glark Mythic',       desc: 'Reached 10000 Glark lifetime!' },
+];
+
 // Round to 8 decimal places to avoid floating-point drift.
 function round8(n) {
   return Math.round(n * 1e8) / 1e8;
@@ -81,6 +93,7 @@ function computeMultiplierFromGlark(glark) {
 
 // Migrate persisted players: rename flark→glark, remove potential.
 // Recompute multiplier from glark for all players.
+// Also seed lifetimeMax and achievements for pre-existing players.
 state.players.forEach(p => {
   if (p.glark === undefined) {
     p.glark = typeof p.flark === 'number' ? p.flark : 10;
@@ -90,6 +103,13 @@ state.players.forEach(p => {
   p.multiplier = computeMultiplierFromGlark(p.glark);
   if (typeof p.multiplier !== 'number' || !Number.isFinite(p.multiplier)) {
     p.multiplier = 1.0;
+  }
+  // Seed milestone tracking fields without emitting events for past progress.
+  if (typeof p.lifetimeMax !== 'number') p.lifetimeMax = p.glark || 0;
+  if (!Array.isArray(p.achievements)) {
+    p.achievements = MILESTONES
+      .filter(m => p.lifetimeMax >= m.threshold)
+      .map(m => m.threshold);
   }
 });
 
@@ -113,10 +133,36 @@ function createPlayer(name, initialGlark = 10) {
     name,
     glark,
     multiplier: computeMultiplierFromGlark(glark),
+    lifetimeMax: glark,
+    achievements: MILESTONES.filter(m => glark >= m.threshold).map(m => m.threshold),
   };
 
   state.players.push(player);
   return player;
+}
+
+// Check whether the player has crossed any new milestones and, if so,
+// update lifetimeMax / achievements and notify the player's active socket(s).
+// Must be called after every glark mutation.
+function checkAndAwardMilestones(player) {
+  const newMax = Math.max(player.lifetimeMax || 0, player.glark || 0);
+  if (newMax <= (player.lifetimeMax || 0)) return; // lifetimeMax didn't increase
+
+  player.lifetimeMax = newMax;
+
+  const awarded = MILESTONES.filter(
+    m => newMax >= m.threshold && !(player.achievements || []).includes(m.threshold),
+  );
+  if (awarded.length === 0) return;
+
+  awarded.forEach(m => player.achievements.push(m.threshold));
+
+  // Emit each newly earned milestone to every socket logged in as this player.
+  for (const [, s] of io.sockets.sockets) {
+    if (s.user && s.user.playerId === player.id) {
+      s.emit('milestone', awarded.map(m => ({ threshold: m.threshold, label: m.label, desc: m.desc })));
+    }
+  }
 }
 
 function addTransaction(from, to, amount) {
@@ -225,6 +271,8 @@ io.on('connection', socket => {
     to.glark = round8(to.glark + amountN);
     from.multiplier = computeMultiplierFromGlark(from.glark);
     to.multiplier = computeMultiplierFromGlark(to.glark);
+    checkAndAwardMilestones(from);
+    checkAndAwardMilestones(to);
     addTransaction(from.name, to.name, amountN);
     broadcastState();
     respond({ success: true });
@@ -284,6 +332,7 @@ setInterval(() => {
 
     if (p.glark !== guess) { p.glark = guess; changed = true; }
     if (p.multiplier !== newMultiplier) { p.multiplier = newMultiplier; changed = true; }
+    checkAndAwardMilestones(p);
   });
 
   if (changed) broadcastState();

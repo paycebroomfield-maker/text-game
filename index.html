@@ -99,6 +99,16 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
+  <div id="trophyOverlay" class="trophy-overlay hidden" role="dialog" aria-modal="true" aria-label="Milestone trophy" tabindex="0">
+    <div class="trophy-card">
+      <div class="trophy-icon">🏆</div>
+      <h2 class="trophy-title">Milestone Reached!</h2>
+      <p class="trophy-label" id="trophyLabel"></p>
+      <p class="trophy-desc" id="trophyDesc"></p>
+      <p class="trophy-dismiss">Click anywhere to dismiss</p>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
 </body>
