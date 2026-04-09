@@ -95,6 +95,7 @@ state.players.forEach(p => {
   if (typeof p.lifetimeMaxGlark !== 'number') p.lifetimeMaxGlark = p.glark;
   if (!Array.isArray(p.trophiesEarned)) p.trophiesEarned = [];
   if (!Array.isArray(p.items)) p.items = [];
+  if (typeof p.plark !== 'number') p.plark = 0;
 });
 
 function hashPassword(password) {
@@ -131,6 +132,7 @@ function createPlayer(name, initialGlark = 10) {
     lifetimeMaxGlark: glark,
     trophiesEarned: [],
     items: [],
+    plark: 0,
   };
 
   state.players.push(player);
@@ -374,6 +376,15 @@ setInterval(() => {
     if (p.glark !== guess) { p.glark = guess; changed = true; }
     if (p.multiplier !== newMultiplier) { p.multiplier = newMultiplier; changed = true; }
     if (checkTrophies(p)) changed = true;
+
+    // Plark accrual: each item contributes milestone/100 Plark per tick.
+    if (Array.isArray(p.items) && p.items.length > 0) {
+      const plarkGain = p.items.reduce((sum, item) => sum + (Number(item.milestone) || 0) / 100, 0);
+      if (plarkGain > 0) {
+        p.plark = round8((p.plark || 0) + plarkGain);
+        changed = true;
+      }
+    }
   });
 
   if (changed) broadcastState();

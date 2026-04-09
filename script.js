@@ -55,6 +55,7 @@ const elements = {
   authMessage: document.getElementById('authMessage'),
   glarkValue: document.getElementById('glarkValue'),
   multiplierValue: document.getElementById('multiplierValue'),
+  plarkValue: document.getElementById('plarkValue'),
   transactionsList: document.getElementById('transactionsList'),
   txFilter: document.getElementById('txFilter'),
   chatFilter: document.getElementById('chatFilter'),
@@ -99,6 +100,7 @@ function refreshStatus() {
     ? player.multiplier
     : 1;
   elements.multiplierValue.textContent = `x${format8(mult)}`;
+  elements.plarkValue.textContent = format8(player.plark || 0);
 }
 
 function clickTransactionName(name) {
@@ -306,17 +308,37 @@ function transferItem(item) {
   const sender = getCurrentPlayer();
   if (!sender || !itemSelectionTarget) return;
   const fee = item.milestone / 2;
+  const feeStr = Number(fee).toLocaleString();
   if (sender.glark < fee) {
-    showToast(`Not enough Glark to pay the transfer fee of ${Number(fee).toLocaleString()} Glark.`);
+    showToast(`Not enough Glark to pay the transfer fee of ${feeStr} Glark.`);
     return;
   }
-  socket.emit('send_item', { fromId: sender.id, itemId: item.id, toId: itemSelectionTarget.id }, response => {
-    if (response && !response.success) {
-      showToast(response.message);
-    } else {
-      exitItemSelectionMode();
-    }
-  });
+  const msg = document.getElementById('transferConfirmMessage');
+  msg.textContent = `This transfer will cost ${feeStr} Glark. Would you like to proceed?`;
+  const modal = document.getElementById('transferConfirmModal');
+  modal.classList.remove('hidden');
+
+  const yesBtn = document.getElementById('transferConfirmYes');
+  const noBtn = document.getElementById('transferConfirmNo');
+
+  function cleanup() {
+    modal.classList.add('hidden');
+  }
+
+  yesBtn.addEventListener('click', () => {
+    cleanup();
+    socket.emit('send_item', { fromId: sender.id, itemId: item.id, toId: itemSelectionTarget.id }, response => {
+      if (response && !response.success) {
+        showToast(response.message);
+      } else {
+        exitItemSelectionMode();
+      }
+    });
+  }, { once: true });
+
+  noBtn.addEventListener('click', () => {
+    cleanup();
+  }, { once: true });
 }
 
 

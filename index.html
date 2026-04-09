@@ -38,6 +38,10 @@
           <strong id="multiplierValue">x1</strong>
         </div>
         <div class="stat-block">
+          <span>Plark</span>
+          <strong id="plarkValue">0</strong>
+        </div>
+        <div class="stat-block">
           <span>Next Tick</span>
           <strong id="tickValue">--:--</strong>
         </div>
@@ -96,6 +100,16 @@
       <div class="modal-actions">
         <button id="confirmTransfer">Send</button>
         <button id="cancelTransfer">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="transferConfirmModal" class="modal hidden">
+    <div class="modal-content">
+      <p id="transferConfirmMessage"></p>
+      <div class="modal-actions">
+        <button id="transferConfirmYes">Yes</button>
+        <button id="transferConfirmNo">No</button>
       </div>
     </div>
   </div>
