@@ -4,6 +4,7 @@ let currentPlayerId = null;
 let currentUsername = null;
 let activeChatRoom = 1;
 let transferTargetPlayer = null;
+let itemTransferItem = null;
 
 // Tick countdown state
 let nextTickAt = null;
@@ -143,7 +144,24 @@ function refreshTransactions() {
     const toName = tx.to || '';
     const amount = Number(tx.amount);
 
-    if (fromName && toName && !Number.isNaN(amount)) {
+    if (tx.item && fromName && toName) {
+      const fromNode = document.createElement('strong');
+      fromNode.textContent = fromName;
+      fromNode.className = 'tx-name';
+      fromNode.style.cursor = 'pointer';
+      fromNode.onclick = () => clickTransactionName(fromName);
+
+      const toNode = document.createElement('strong');
+      toNode.textContent = toName;
+      toNode.className = 'tx-name';
+      toNode.style.cursor = 'pointer';
+      toNode.onclick = () => clickTransactionName(toName);
+
+      p.appendChild(fromNode);
+      p.appendChild(document.createTextNode(' sent '));
+      p.appendChild(toNode);
+      p.appendChild(document.createTextNode(` a ${Number(tx.item.milestone).toLocaleString()} Glark Trophy`));
+    } else if (fromName && toName && !Number.isNaN(amount)) {
       const fromNode = document.createElement('strong');
       fromNode.textContent = fromName;
       fromNode.className = 'tx-name';
@@ -209,7 +227,76 @@ function refreshAll() {
   refreshStatus();
   refreshTransactions();
   refreshChat();
+  refreshItems();
 }
+
+function refreshItems() {
+  const player = getCurrentPlayer();
+  const list = document.querySelector('#itemsBox .items-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!player || !Array.isArray(player.items) || player.items.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'items-empty';
+    p.textContent = 'No items yet.';
+    list.appendChild(p);
+    return;
+  }
+  player.items.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'item-name';
+    nameEl.textContent = `🏆 ${Number(item.milestone).toLocaleString()} Glark Trophy`;
+    const btn = document.createElement('button');
+    btn.className = 'item-send-btn';
+    btn.textContent = 'Send';
+    btn.onclick = () => openItemTransfer(item);
+    card.appendChild(nameEl);
+    card.appendChild(btn);
+    list.appendChild(card);
+  });
+}
+
+function openItemTransfer(item) {
+  const sender = getCurrentPlayer();
+  if (!sender) return;
+  itemTransferItem = item;
+  document.getElementById('itemTransferName').textContent =
+    `🏆 ${Number(item.milestone).toLocaleString()} Glark Trophy`;
+  const select = document.getElementById('itemTransferTarget');
+  select.innerHTML = '<option value="">Select recipient…</option>';
+  gameState.players.forEach(p => {
+    if (p.id === sender.id) return;
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    select.appendChild(opt);
+  });
+  document.getElementById('itemTransferModal').classList.remove('hidden');
+}
+
+function closeItemTransfer() {
+  itemTransferItem = null;
+  document.getElementById('itemTransferModal').classList.add('hidden');
+}
+
+function confirmItemTransfer() {
+  const sender = getCurrentPlayer();
+  const toId = document.getElementById('itemTransferTarget').value;
+  if (!sender || !itemTransferItem || !toId) {
+    showToast('Please select a recipient.');
+    return;
+  }
+  socket.emit('send_item', { fromId: sender.id, itemId: itemTransferItem.id, toId }, response => {
+    if (response && !response.success) {
+      showToast(response.message);
+    } else {
+      closeItemTransfer();
+    }
+  });
+}
+
 
 function openTransfer(targetId) {
   const sender = getCurrentPlayer();
@@ -305,6 +392,9 @@ function setupEvents() {
 
   elements.cancelTransfer.addEventListener('click', closeTransfer);
   elements.confirmTransfer.addEventListener('click', confirmTransfer);
+
+  document.getElementById('cancelItemTransfer').addEventListener('click', closeItemTransfer);
+  document.getElementById('confirmItemTransfer').addEventListener('click', confirmItemTransfer);
 
   socket.on('state', state => {
     gameState = state;

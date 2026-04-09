@@ -94,6 +94,7 @@ state.players.forEach(p => {
   }
   if (typeof p.lifetimeMaxGlark !== 'number') p.lifetimeMaxGlark = p.glark;
   if (!Array.isArray(p.trophiesEarned)) p.trophiesEarned = [];
+  if (!Array.isArray(p.items)) p.items = [];
 });
 
 function hashPassword(password) {
@@ -129,6 +130,7 @@ function createPlayer(name, initialGlark = 10) {
     multiplier: computeMultiplierFromGlark(glark),
     lifetimeMaxGlark: glark,
     trophiesEarned: [],
+    items: [],
   };
 
   state.players.push(player);
@@ -174,6 +176,10 @@ function checkTrophies(player) {
   for (const milestone of GLARK_MILESTONES) {
     if (newMax >= milestone && !player.trophiesEarned.includes(milestone)) {
       player.trophiesEarned.push(milestone);
+      // Award a tradable trophy item for this milestone.
+      const itemId = crypto.randomBytes(8).toString('hex');
+      if (!Array.isArray(player.items)) player.items = [];
+      player.items.push({ id: itemId, milestone });
       milestonePlacement[milestone] += 1;
       const placement = milestonePlacement[milestone];
       for (const [, s] of io.sockets.sockets) {
@@ -271,6 +277,32 @@ io.on('connection', socket => {
     to.multiplier = computeMultiplierFromGlark(to.glark);
     checkTrophies(to);
     addTransaction(from.name, to.name, amountN);
+    broadcastState();
+    respond({ success: true });
+  });
+
+  socket.on('send_item', ({ fromId, itemId, toId }, callback) => {
+    const respond = (typeof callback === 'function') ? callback : () => {};
+    if (!socket.user || socket.user.playerId !== fromId) return respond({ success: false, message: 'Unauthorized' });
+    const from = resolvePlayerById(fromId);
+    const to = resolvePlayerById(toId);
+    if (!from || !to) return respond({ success: false, message: 'Player not found' });
+    if (from.id === to.id) return respond({ success: false, message: 'Cannot send an item to yourself' });
+    if (!Array.isArray(from.items)) from.items = [];
+    const itemIndex = from.items.findIndex(it => it.id === itemId);
+    if (itemIndex === -1) return respond({ success: false, message: 'Item not found' });
+    const [item] = from.items.splice(itemIndex, 1);
+    if (!Array.isArray(to.items)) to.items = [];
+    to.items.push(item);
+    const milestoneStr = Number(item.milestone).toLocaleString();
+    state.transactions.unshift({
+      from: from.name,
+      to: to.name,
+      item: { milestone: item.milestone },
+      text: `${from.name} sent ${to.name} a ${milestoneStr} Glark Trophy`,
+      time: Date.now(),
+    });
+    if (state.transactions.length > 200) state.transactions.pop();
     broadcastState();
     respond({ success: true });
   });
