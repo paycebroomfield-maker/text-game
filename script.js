@@ -61,6 +61,7 @@ const elements = {
   transferAmount: document.getElementById('transferAmount'),
   confirmTransfer: document.getElementById('confirmTransfer'),
   cancelTransfer: document.getElementById('cancelTransfer'),
+  shopModal: document.getElementById('shopModal'),
 };
 
 // Format a number for display: round to 8 decimal places max, then trim trailing zeros.
@@ -464,6 +465,13 @@ function setupEvents() {
   });
 
   document.getElementById('cancelSelectionBtn').addEventListener('click', exitItemSelectionMode);
+
+  document.getElementById('shopBtn').addEventListener('click', () => {
+    elements.shopModal.classList.remove('hidden');
+  });
+  document.getElementById('shopCloseBtn').addEventListener('click', () => {
+    elements.shopModal.classList.add('hidden');
+  });
 
   socket.on('state', state => {
     gameState = state;
