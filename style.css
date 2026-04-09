@@ -54,7 +54,13 @@ main { display:grid; grid-template-columns: 260px 1fr; gap:0.75rem; }
 @keyframes toast-in { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 @keyframes toast-out { from { opacity:1; } to { opacity:0; } }
 .items-box { min-width: 240px; width: 280px; flex-shrink: 0; }
-.items-list { min-height: 60px; }
+.items-list { min-height: 60px; max-height: 300px; overflow-y: auto; }
+.item-card { background:#1a2240; border:1px solid #3c4e80; border-radius:8px; padding:0.5rem 0.65rem; margin-bottom:0.4rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; }
+.item-name { font-size:0.88rem; flex:1; }
+.item-send-btn { background:#2d71ff; border:none; border-radius:6px; color:#fff; padding:3px 9px; cursor:pointer; font-size:0.82rem; white-space:nowrap; }
+.item-send-btn:hover { background:#1a5fdd; }
+.items-empty { font-size:0.9rem; opacity:0.7; margin:0.4rem 0; }
+#itemTransferTarget { width:100%; padding:0.4rem 0.5rem; border:1px solid #43507e; border-radius:6px; background:#172240; color:#fff; margin-top:0.3rem; }
 .tx-items-row { display: flex; gap: 0.75rem; align-items: stretch; }
 .tx-items-row .transactions { flex: 1; min-width: 0; }
 @media (max-width: 640px) { .tx-items-row { flex-direction: column; } .items-box { width: 100%; } }
