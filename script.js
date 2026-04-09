@@ -241,6 +241,7 @@ function refreshItems() {
   const size = computeCircleSize(count);
   // Most recently acquired first.
   const itemsToShow = [...player.items].reverse();
+  const tooltip = document.getElementById('itemTooltip');
   itemsToShow.forEach(item => {
     const circle = document.createElement('div');
     circle.className = `item-circle ${getItemColorClass(item.milestone)}`;
@@ -251,6 +252,19 @@ function refreshItems() {
       ? `${milestoneStr} Glark Trophy #${item.placement}`
       : `${milestoneStr} Glark Trophy`;
     circle.dataset.tooltip = tooltipText;
+    if (tooltip) {
+      circle.addEventListener('mouseenter', () => {
+        const rect = circle.getBoundingClientRect();
+        tooltip.textContent = tooltipText;
+        tooltip.style.left = `${rect.left + rect.width / 2}px`;
+        tooltip.style.top = `${rect.top - 10}px`;
+        tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+        tooltip.style.display = 'block';
+      });
+      circle.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+      });
+    }
     if (itemSelectionTarget) {
       circle.classList.add('selectable');
       circle.onclick = () => transferItem(item);
@@ -444,8 +458,9 @@ function setupEvents() {
       return;
     }
     if (!transferTargetPlayer) return;
+    const target = transferTargetPlayer; // capture before closeTransfer() nulls it
     closeTransfer();
-    enterItemSelectionMode(transferTargetPlayer);
+    enterItemSelectionMode(target);
   });
 
   document.getElementById('cancelSelectionBtn').addEventListener('click', exitItemSelectionMode);
