@@ -81,6 +81,7 @@ function computeMultiplierFromGlark(glark) {
 
 // Migrate persisted players: rename flark→glark, remove potential.
 // Recompute multiplier from glark for all players.
+// Ensure lifetimeMaxGlark and trophiesEarned fields exist.
 state.players.forEach(p => {
   if (p.glark === undefined) {
     p.glark = typeof p.flark === 'number' ? p.flark : 10;
@@ -91,11 +92,24 @@ state.players.forEach(p => {
   if (typeof p.multiplier !== 'number' || !Number.isFinite(p.multiplier)) {
     p.multiplier = 1.0;
   }
+  if (typeof p.lifetimeMaxGlark !== 'number') p.lifetimeMaxGlark = p.glark;
+  if (!Array.isArray(p.trophiesEarned)) p.trophiesEarned = [];
 });
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
+
+// Glark milestone thresholds for trophy awards.
+const GLARK_MILESTONES = [
+  100, 1000, 10000, 100000, 1000000, 10000000, 100000000,
+  1000000000, 10000000000, 100000000000, 1000000000000,
+];
+
+// In-memory placement counters: how many players have earned each milestone this server run.
+// Resets on every server restart (in-memory only, by design).
+const milestonePlacement = {};
+for (const m of GLARK_MILESTONES) milestonePlacement[m] = 0;
 
 // In-memory count of players created since server start. Resets on every deploy/restart.
 // The first 20 players created in each server lifetime receive the starter bonus (50 glark).
@@ -113,6 +127,8 @@ function createPlayer(name, initialGlark = 10) {
     name,
     glark,
     multiplier: computeMultiplierFromGlark(glark),
+    lifetimeMaxGlark: glark,
+    trophiesEarned: [],
   };
 
   state.players.push(player);
@@ -142,6 +158,34 @@ function broadcastState() {
 
 function resolvePlayerById(id) {
   return state.players.find(p => p.id === id);
+}
+
+/**
+ * Update a player's lifetime max glark and award any newly crossed milestone trophies.
+ * Emits a 'trophy' event on the player's connected socket (if any).
+ * Returns true if lifetimeMaxGlark changed (signals that a save may be needed).
+ */
+function checkTrophies(player) {
+  if (!player) return false;
+  const newMax = Math.max(player.lifetimeMaxGlark || 0, player.glark || 0);
+  const changed = newMax !== player.lifetimeMaxGlark;
+  player.lifetimeMaxGlark = newMax;
+
+  for (const milestone of GLARK_MILESTONES) {
+    if (newMax >= milestone && !player.trophiesEarned.includes(milestone)) {
+      player.trophiesEarned.push(milestone);
+      milestonePlacement[milestone] = (milestonePlacement[milestone] || 0) + 1;
+      const placement = milestonePlacement[milestone];
+      for (const [, s] of io.sockets.sockets) {
+        if (s.user && s.user.playerId === player.id) {
+          s.emit('trophy', { milestone, placement });
+          break;
+        }
+      }
+    }
+  }
+
+  return changed;
 }
 
 function registerUser(username, password) {
@@ -225,6 +269,7 @@ io.on('connection', socket => {
     to.glark = round8(to.glark + amountN);
     from.multiplier = computeMultiplierFromGlark(from.glark);
     to.multiplier = computeMultiplierFromGlark(to.glark);
+    checkTrophies(to);
     addTransaction(from.name, to.name, amountN);
     broadcastState();
     respond({ success: true });
@@ -284,6 +329,7 @@ setInterval(() => {
 
     if (p.glark !== guess) { p.glark = guess; changed = true; }
     if (p.multiplier !== newMultiplier) { p.multiplier = newMultiplier; changed = true; }
+    if (checkTrophies(p)) changed = true;
   });
 
   if (changed) broadcastState();

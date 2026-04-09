@@ -29,6 +29,14 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 3000);
 }
 
+function showTrophyOverlay(milestone, placement) {
+  const milestoneStr = Number(milestone).toLocaleString();
+  const placementStr = placement.toLocaleString();
+  document.getElementById('trophyMessage').innerHTML =
+    `Congratulations! You earned<br><strong>${milestoneStr} Glark Trophy!</strong><br>You were #${placementStr} to earn this trophy on this server!`;
+  document.getElementById('trophyOverlay').classList.remove('hidden');
+}
+
 const elements = {
   authContainer: document.getElementById('authContainer'),
   gameContainer: document.getElementById('gameContainer'),
@@ -312,6 +320,10 @@ function setupEvents() {
   socket.on('tick_info', ({ nextTickAt: nta }) => {
     nextTickAt = nta;
     updateTickDisplay();
+  });
+
+  socket.on('trophy', ({ milestone, placement }) => {
+    showTrophyOverlay(milestone, placement);
   });
 }
 
