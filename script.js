@@ -32,16 +32,9 @@ function showToast(message) {
 
 function showTrophyOverlay(milestone, placement) {
   const milestoneStr = Number(milestone).toLocaleString();
-  const placementStr = placement.toLocaleString();
+  const placementStr = Number(placement).toLocaleString();
   const msg = document.getElementById('trophyMessage');
-  msg.textContent = '';
-  msg.appendChild(document.createTextNode('Congratulations! You earned'));
-  msg.appendChild(document.createElement('br'));
-  const strong = document.createElement('strong');
-  strong.textContent = `${milestoneStr} Glark Trophy!`;
-  msg.appendChild(strong);
-  msg.appendChild(document.createElement('br'));
-  msg.appendChild(document.createTextNode(`You were #${placementStr} to earn this trophy on this server!`));
+  msg.textContent = `Congratulations! You earned ${milestoneStr} Glark Trophy #${placementStr}.`;
   document.getElementById('trophyOverlay').classList.remove('hidden');
 }
 
