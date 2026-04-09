@@ -174,7 +174,7 @@ function checkTrophies(player) {
   for (const milestone of GLARK_MILESTONES) {
     if (newMax >= milestone && !player.trophiesEarned.includes(milestone)) {
       player.trophiesEarned.push(milestone);
-      milestonePlacement[milestone] = (milestonePlacement[milestone] || 0) + 1;
+      milestonePlacement[milestone] += 1;
       const placement = milestonePlacement[milestone];
       for (const [, s] of io.sockets.sockets) {
         if (s.user && s.user.playerId === player.id) {
