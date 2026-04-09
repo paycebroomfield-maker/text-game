@@ -99,6 +99,14 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
+  <div id="trophyOverlay" class="trophy-overlay hidden">
+    <div class="trophy-content">
+      <div class="trophy-icon">🏆</div>
+      <p id="trophyMessage"></p>
+      <button onclick="document.getElementById('trophyOverlay').classList.add('hidden')">Dismiss</button>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
 </body>
