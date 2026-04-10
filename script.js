@@ -5,6 +5,7 @@ let currentUsername = null;
 let activeChatRoom = 1;
 let transferTargetPlayer = null;
 let itemSelectionTarget = null;
+let pendingShopPurchase = null;
 
 // Tick countdown state
 let nextTickAt = null;
@@ -224,6 +225,7 @@ function refreshAll() {
   refreshTransactions();
   refreshChat();
   refreshItems();
+  applyCosmetics();
 }
 
 function refreshItems() {
@@ -244,6 +246,29 @@ function refreshItems() {
   const itemsToShow = [...player.items].reverse();
   const tooltip = document.getElementById('itemTooltip');
   itemsToShow.forEach(item => {
+    if (item.type === 'cosmetic') {
+      const square = document.createElement('div');
+      square.className = 'item-square';
+      square.style.width = `${size}px`;
+      square.style.height = `${size}px`;
+      const tooltipText = item.name || 'Cosmetic Item';
+      if (tooltip) {
+        square.addEventListener('mouseenter', () => {
+          const rect = square.getBoundingClientRect();
+          tooltip.textContent = tooltipText;
+          tooltip.style.left = `${rect.left + rect.width / 2}px`;
+          tooltip.style.top = `${rect.top - 10}px`;
+          tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+          tooltip.style.display = 'block';
+        });
+        square.addEventListener('mouseleave', () => {
+          tooltip.style.display = 'none';
+        });
+      }
+      // Cosmetic items are non-transferable; never selectable.
+      list.appendChild(square);
+      return;
+    }
     const circle = document.createElement('div');
     circle.className = `item-circle ${getItemColorClass(item.milestone)}`;
     circle.style.width = `${size}px`;
@@ -272,6 +297,22 @@ function refreshItems() {
     }
     list.appendChild(circle);
   });
+}
+
+function applyCosmetics() {
+  const player = getCurrentPlayer();
+  const cosmetics = new Set(
+    (player?.items ?? [])
+      .filter(i => i.type === 'cosmetic')
+      .map(i => i.cosmeticId)
+  );
+  const hasBundle = cosmetics.has('wealthy_bundle');
+  document.body.classList.toggle('theme-yellow', cosmetics.has('yellow_theme') || hasBundle);
+  document.body.classList.toggle('font-fancy', cosmetics.has('fancy_font') || hasBundle);
+  const badge = document.getElementById('wealthyTitleBadge');
+  if (badge) {
+    badge.classList.toggle('hidden', !cosmetics.has('wealthy_title') && !hasBundle);
+  }
 }
 
 function getItemColorClass(milestone) {
@@ -350,6 +391,10 @@ function transferItem(item) {
 }
 
 
+function isTransferableItem(item) {
+  return item.type !== 'cosmetic';
+}
+
 function openTransfer(targetId) {
   const sender = getCurrentPlayer();
   if (!sender) return;
@@ -358,9 +403,9 @@ function openTransfer(targetId) {
   const targetLabel = transferTargetPlayer.id === sender.id ? 'yourself' : transferTargetPlayer.name;
   elements.transferTarget.textContent = `${sender.name} → ${targetLabel}`;
   elements.transferAmount.value = '';
-  // Show "Send Item" button only when sender has items and target is not self.
+  // Show "Send Item" button only when sender has transferable (trophy) items and target is not self.
   const sendItemBtn = document.getElementById('sendItemBtn');
-  const hasItems = Array.isArray(sender.items) && sender.items.length > 0;
+  const hasItems = Array.isArray(sender.items) && sender.items.some(isTransferableItem);
   const isSelf = transferTargetPlayer.id === sender.id;
   if (sendItemBtn) {
     sendItemBtn.classList.toggle('hidden', !hasItems || isSelf);
@@ -471,6 +516,42 @@ function setupEvents() {
   });
   document.getElementById('shopCloseBtn').addEventListener('click', () => {
     elements.shopModal.classList.add('hidden');
+  });
+
+  document.querySelectorAll('.shop-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const player = getCurrentPlayer();
+      if (!player) { showToast('You must be logged in to purchase.'); return; }
+      pendingShopPurchase = {
+        cosmeticId: card.dataset.cosmeticId,
+        name: card.dataset.name,
+        price: Number(card.dataset.price),
+        playerId: player.id,
+      };
+      document.getElementById('shopPurchaseMessage').textContent =
+        `Purchase ${pendingShopPurchase.name} for ${pendingShopPurchase.price} Plark?`;
+      document.getElementById('shopPurchaseModal').classList.remove('hidden');
+    });
+  });
+
+  document.getElementById('shopPurchaseConfirm').addEventListener('click', () => {
+    document.getElementById('shopPurchaseModal').classList.add('hidden');
+    if (!pendingShopPurchase) return;
+    const { cosmeticId, name, playerId } = pendingShopPurchase;
+    pendingShopPurchase = null;
+    socket.emit('buy_shop_item', { playerId, cosmeticId }, response => {
+      if (response && !response.success) {
+        showToast(response.message);
+      } else {
+        showToast(`Purchased ${name}!`);
+        elements.shopModal.classList.add('hidden');
+      }
+    });
+  });
+
+  document.getElementById('shopPurchaseCancel').addEventListener('click', () => {
+    pendingShopPurchase = null;
+    document.getElementById('shopPurchaseModal').classList.add('hidden');
   });
 
   socket.on('state', state => {

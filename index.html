@@ -40,6 +40,7 @@
         <div class="stat-block">
           <span>Plark</span>
           <strong id="plarkValue">0</strong>
+          <span id="wealthyTitleBadge" class="wealthy-title-badge hidden">Wealthy</span>
           <button id="shopBtn" class="small-button">Shop</button>
         </div>
         <div class="stat-block">
@@ -90,12 +91,59 @@
   </div>
 
   <div id="shopModal" class="modal hidden">
-    <div class="modal-content">
+    <div class="modal-content shop-modal-content">
       <div class="modal-title-row">
         <h3>Shop</h3>
         <button id="shopCloseBtn" class="modal-close-btn">&#x2715;</button>
       </div>
-      <p>Shop content coming soon.</p>
+      <div class="shop-cards">
+        <div class="shop-card" data-cosmetic-id="wealthy_bundle" data-price="25" data-name="Wealthy Bundle">
+          <span class="shop-card-price-badge">25 Plark</span>
+          <h4 class="shop-card-title">Wealthy Bundle</h4>
+          <ul class="shop-card-bullets">
+            <li>Includes all cosmetic effects</li>
+            <li>Save 5 Plark vs separately</li>
+            <li>Exclusive bundle square in Items</li>
+          </ul>
+        </div>
+        <div class="shop-card" data-cosmetic-id="yellow_theme" data-price="5" data-name="Yellow Theme">
+          <span class="shop-card-price-badge">5 Plark</span>
+          <h4 class="shop-card-title">Yellow Theme</h4>
+          <ul class="shop-card-bullets">
+            <li>Golden accent color scheme</li>
+            <li>Subtle UI enhancement</li>
+            <li>Yellow square in Items box</li>
+          </ul>
+        </div>
+        <div class="shop-card" data-cosmetic-id="fancy_font" data-price="10" data-name="Fancy Font">
+          <span class="shop-card-price-badge">10 Plark</span>
+          <h4 class="shop-card-title">Fancy Font</h4>
+          <ul class="shop-card-bullets">
+            <li>Applies elegant script font</li>
+            <li>Unique typographic style</li>
+            <li>Yellow square in Items box</li>
+          </ul>
+        </div>
+        <div class="shop-card" data-cosmetic-id="wealthy_title" data-price="15" data-name="Wealthy Title">
+          <span class="shop-card-price-badge">15 Plark</span>
+          <h4 class="shop-card-title">Wealthy Title</h4>
+          <ul class="shop-card-bullets">
+            <li>Adds "Wealthy" badge to Plark stat</li>
+            <li>Displayed in your status panel</li>
+            <li>Yellow square in Items box</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="shopPurchaseModal" class="modal hidden">
+    <div class="modal-content">
+      <p id="shopPurchaseMessage"></p>
+      <div class="modal-actions">
+        <button id="shopPurchaseConfirm">Purchase</button>
+        <button id="shopPurchaseCancel">Cancel</button>
+      </div>
     </div>
   </div>
 

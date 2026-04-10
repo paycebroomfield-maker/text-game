@@ -81,3 +81,20 @@ main { display:grid; grid-template-columns: 260px 1fr; gap:0.75rem; }
 .trophy-content button { background:#2d71ff; border:none; border-radius:6px; color:#fff; padding:0.5rem 1.5rem; cursor:pointer; font-size:1rem; }
 .modal-close-btn { background: none; border: none; color: #99a2c3; font-size: 1.1rem; cursor: pointer; padding: 0; line-height: 1; }
 .modal-close-btn:hover { color: #e3e6f1; }
+.shop-modal-content { width: min(540px, 95%); }
+.shop-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem; }
+.shop-card { border: 3px solid #ffd700; border-radius: 12px; padding: 0.75rem 0.75rem 0.6rem; cursor: pointer; position: relative; background: #0e1530; transition: background 0.15s; }
+.shop-card:hover { background: #141e40; }
+.shop-card-price-badge { position: absolute; top: -11px; right: 8px; background: #ffd700; color: #0d0f1b; font-size: 0.72rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.shop-card-title { margin: 0.1rem 0 0.45rem; text-align: center; font-family: Georgia, 'Palatino Linotype', serif; font-style: italic; color: #ffd700; font-size: 1rem; }
+.shop-card-bullets { margin: 0; padding-left: 1.1rem; font-size: 0.82rem; color: #cfd2e2; }
+.shop-card-bullets li { margin-bottom: 0.2rem; }
+#shopPurchaseConfirm { background: #27b76b; color: #fff; }
+#shopPurchaseCancel { background: #a33636; color: #fff; }
+.item-square { border-radius: 4px; background: #ffd700; box-shadow: 0 0 6px rgba(255,215,0,0.5); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.wealthy-title-badge { display: inline-block; background: #ffd700; color: #0d0f1b; font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 8px; margin-top: 0.3rem; }
+body.theme-yellow .small-button { background: #8a6e00; border-color: #c8a600; }
+body.theme-yellow #confirmTransfer, body.theme-yellow .chat-input-row button { background: #8a6e00; }
+body.theme-yellow .chat-tab.active { background: #3d3200; border-color: #a08000; }
+body.theme-yellow .tx-name { color: #d4a000; }
+body.font-fancy { font-family: Georgia, 'Palatino Linotype', serif; }

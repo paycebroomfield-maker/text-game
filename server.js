@@ -102,6 +102,14 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
+// Shop items available for purchase with Plark.
+const SHOP_ITEMS = {
+  wealthy_bundle: { id: 'wealthy_bundle', name: 'Wealthy Bundle', price: 25 },
+  yellow_theme:   { id: 'yellow_theme',   name: 'Yellow Theme',   price: 5  },
+  fancy_font:     { id: 'fancy_font',     name: 'Fancy Font',     price: 10 },
+  wealthy_title:  { id: 'wealthy_title',  name: 'Wealthy Title',  price: 15 },
+};
+
 // Glark milestone thresholds for trophy awards.
 const GLARK_MILESTONES = [
   100, 1000, 10000, 100000, 1000000, 10000000, 100000000,
@@ -283,6 +291,27 @@ io.on('connection', socket => {
     respond({ success: true });
   });
 
+  socket.on('buy_shop_item', ({ playerId, cosmeticId }, callback) => {
+    const respond = (typeof callback === 'function') ? callback : () => {};
+    if (!socket.user || socket.user.playerId !== playerId) return respond({ success: false, message: 'Unauthorized' });
+    const player = resolvePlayerById(playerId);
+    if (!player) return respond({ success: false, message: 'Player not found' });
+    const shopItem = SHOP_ITEMS[cosmeticId];
+    if (!shopItem) return respond({ success: false, message: 'Unknown item' });
+    if ((player.plark || 0) < shopItem.price) {
+      return respond({ success: false, message: `Not enough Plark. You need ${shopItem.price} Plark.` });
+    }
+    if (!Array.isArray(player.items)) player.items = [];
+    if (player.items.some(i => i.type === 'cosmetic' && i.cosmeticId === cosmeticId)) {
+      return respond({ success: false, message: 'You already own this item.' });
+    }
+    player.plark = round8((player.plark || 0) - shopItem.price);
+    const itemId = crypto.randomBytes(8).toString('hex');
+    player.items.push({ id: itemId, type: 'cosmetic', cosmeticId: shopItem.id, name: shopItem.name });
+    broadcastState();
+    respond({ success: true });
+  });
+
   socket.on('send_item', ({ fromId, itemId, toId }, callback) => {
     const respond = (typeof callback === 'function') ? callback : () => {};
     if (!socket.user || socket.user.playerId !== fromId) return respond({ success: false, message: 'Unauthorized' });
@@ -294,6 +323,7 @@ io.on('connection', socket => {
     const itemIndex = from.items.findIndex(it => it.id === itemId);
     if (itemIndex === -1) return respond({ success: false, message: 'Item not found' });
     const item = from.items[itemIndex];
+    if (item.type === 'cosmetic') return respond({ success: false, message: 'Cosmetic items are non-transferable.' });
     // Transfer fee is exactly half the milestone value, deducted from the sender.
     const fee = item.milestone / 2;
     if (from.glark < fee) {
