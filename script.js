@@ -656,10 +656,6 @@ function equipCosmetic(sku) {
   }
 }
 
-  // Store wealthy title state locally
-  localStorage.setItem('wealthyTitleEnabled', equippedCosmetics.has('wealthy-title'));
-}
-
 function refreshUI() {
   // Refresh player data & cosmetics display
   updateItemsBox();
