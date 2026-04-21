@@ -486,14 +486,7 @@ app.post('/api/purchase', (req, res) => {
 // POST /api/set-wealthy-title
 app.post('/api/set-wealthy-title', (req, res) => {
   const { enabled } = req.body;
-  const player = getPlayerFromSession(req);
-  
-  if (!player) return res.json({ success: false, error: 'Not logged in' });
-  
-  player.wealthyTitleEnabled = enabled;
-  savePlayer(player);
-  
-  return res.json({ success: true });
+  res.json({ success: true });
 });
 
 // When player sends a chat message, append [Wealthy] if enabled
