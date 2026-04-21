@@ -656,27 +656,8 @@ function equipCosmetic(sku) {
   }
 }
 
-function applyCosmetics() {
-  const body = document.body;
-  
-  // Remove all cosmetic classes
-  body.classList.remove('yellow-theme-active', 'fancy-font-active');
-  
-  // Apply equipped cosmetics
-  if (equippedCosmetics.has('yellow-theme')) {
-    body.classList.add('yellow-theme-active');
-  }
-  if (equippedCosmetics.has('fancy-font')) {
-    body.classList.add('fancy-font-active');
-  }
-  
-  // Update wealthy title (send to server)
-  const hasWealthyTitle = equippedCosmetics.has('wealthy-title');
-  fetch('/api/set-wealthy-title', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ enabled: hasWealthyTitle })
-  }).catch(err => console.error(err));
+  // Store wealthy title state locally
+  localStorage.setItem('wealthyTitleEnabled', equippedCosmetics.has('wealthy-title'));
 }
 
 function refreshUI() {
