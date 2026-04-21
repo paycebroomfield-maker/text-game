@@ -583,3 +583,103 @@ function setupEvents() {
 }
 
 setupEvents();
+// Shop item configuration
+const SHOP_ITEMS = {
+  'yellow-theme': { name: 'Yellow Theme', price: 5 },
+  'fancy-font': { name: 'Fancy Font', price: 10 },
+  'wealthy-title': { name: 'Wealthy Title', price: 15 },
+  'wealthy-bundle': { 
+    name: 'Wealthy Bundle', 
+    price: 25,
+    grants: ['yellow-theme', 'fancy-font', 'wealthy-title']
+  }
+};
+
+// Track equipped cosmetics
+let equippedCosmetics = new Set();
+
+// Purchase flow
+let pendingPurchase = null;
+
+function purchaseItem(sku) {
+  const item = SHOP_ITEMS[sku];
+  if (!item) return;
+  
+  pendingPurchase = sku;
+  const confirmText = document.getElementById('confirmText');
+  confirmText.textContent = `Purchase ${item.name} for ${item.price} Plark?`;
+  document.getElementById('confirmModal').style.display = 'flex';
+}
+
+function confirmPurchase() {
+  if (!pendingPurchase) return;
+  
+  const sku = pendingPurchase;
+  const item = SHOP_ITEMS[sku];
+  
+  // Send to server
+  fetch('/api/purchase', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sku })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert(`Purchased ${item.name}!`);
+      closeConfirmModal();
+      refreshUI();
+    } else {
+      alert(data.error || 'Purchase failed');
+    }
+  })
+  .catch(err => alert('Error: ' + err.message));
+}
+
+function cancelPurchase() {
+  closeConfirmModal();
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirmModal').style.display = 'none';
+  pendingPurchase = null;
+}
+
+// Cosmetics equip/unequip
+function equipCosmetic(sku) {
+  if (equippedCosmetics.has(sku)) {
+    equippedCosmetics.delete(sku);
+    applyCosmetics();
+  } else {
+    equippedCosmetics.add(sku);
+    applyCosmetics();
+  }
+}
+
+function applyCosmetics() {
+  const body = document.body;
+  
+  // Remove all cosmetic classes
+  body.classList.remove('yellow-theme-active', 'fancy-font-active');
+  
+  // Apply equipped cosmetics
+  if (equippedCosmetics.has('yellow-theme')) {
+    body.classList.add('yellow-theme-active');
+  }
+  if (equippedCosmetics.has('fancy-font')) {
+    body.classList.add('fancy-font-active');
+  }
+  
+  // Update wealthy title (send to server)
+  const hasWealthyTitle = equippedCosmetics.has('wealthy-title');
+  fetch('/api/set-wealthy-title', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: hasWealthyTitle })
+  }).catch(err => console.error(err));
+}
+
+function refreshUI() {
+  // Refresh player data & cosmetics display
+  updateItemsBox();
+}
