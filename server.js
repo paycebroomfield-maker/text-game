@@ -519,3 +519,38 @@ app.post('/api/chat', (req, res) => {
   
   return res.json({ success: true });
 });
+function updateItemsBox() {
+  const itemsContainer = document.getElementById('itemsBox') || document.querySelector('.items-box');
+  if (!itemsContainer) return;
+  
+  let html = '';
+  
+  // Render trophy items (existing code)
+  // ... your existing trophy items code ...
+  
+  // Render cosmetics as yellow squares
+  const cosmetics = playerData.cosmetics || {};
+  
+  for (const [sku, owned] of Object.entries(cosmetics)) {
+    if (owned) {
+      const names = {
+        'yellow-theme': 'Yellow Theme',
+        'fancy-font': 'Fancy Font',
+        'wealthy-title': 'Wealthy Title'
+      };
+      
+      const isEquipped = equippedCosmetics.has(sku);
+      const className = `cosmetic-item ${isEquipped ? 'equipped' : ''}`;
+      
+      html += `
+        <div class="${className}" 
+             onclick="equipCosmetic('${sku}')" 
+             title="${names[sku]}">
+          ${names[sku].substring(0, 2)}
+        </div>
+      `;
+    }
+  }
+  
+  itemsContainer.innerHTML += html;
+}
