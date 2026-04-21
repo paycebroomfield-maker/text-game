@@ -440,3 +440,82 @@ server.listen(PORT, () => {
     );
   }
 });
+// POST /api/purchase
+app.post('/api/purchase', (req, res) => {
+  const { sku } = req.body;
+  const player = getPlayerFromSession(req);
+  
+  if (!player) return res.json({ success: false, error: 'Not logged in' });
+  
+  const SHOP_ITEMS = {
+    'yellow-theme': { price: 5, grants: ['yellow-theme'] },
+    'fancy-font': { price: 10, grants: ['fancy-font'] },
+    'wealthy-title': { price: 15, grants: ['wealthy-title'] },
+    'wealthy-bundle': { price: 25, grants: ['yellow-theme', 'fancy-font', 'wealthy-title'] }
+  };
+  
+  const item = SHOP_ITEMS[sku];
+  if (!item) return res.json({ success: false, error: 'Item not found' });
+  
+  // Check Plark balance
+  if (player.plark < item.price) {
+    return res.json({ success: false, error: 'Insufficient Plark' });
+  }
+  
+  // Deduct Plark & grant items
+  player.plark -= item.price;
+  
+  // Grant items (cosmetics)
+  if (!player.cosmetics) player.cosmetics = {};
+  
+  item.grants.forEach(cosmetic => {
+    if (!player.cosmetics[cosmetic]) {
+      player.cosmetics[cosmetic] = true; // Mark as owned
+    }
+  });
+  
+  savePlayer(player);
+  
+  return res.json({ 
+    success: true, 
+    message: `Purchased ${sku}`,
+    newPlark: player.plark
+  });
+});
+
+// POST /api/set-wealthy-title
+app.post('/api/set-wealthy-title', (req, res) => {
+  const { enabled } = req.body;
+  const player = getPlayerFromSession(req);
+  
+  if (!player) return res.json({ success: false, error: 'Not logged in' });
+  
+  player.wealthyTitleEnabled = enabled;
+  savePlayer(player);
+  
+  return res.json({ success: true });
+});
+
+// When player sends a chat message, append [Wealthy] if enabled
+app.post('/api/chat', (req, res) => {
+  const { message } = req.body;
+  const player = getPlayerFromSession(req);
+  
+  if (!player) return res.json({ success: false, error: 'Not logged in' });
+  
+  let displayName = player.name;
+  if (player.wealthyTitleEnabled) {
+    displayName += ' [Wealthy]';
+  }
+  
+  const chatMessage = {
+    player: displayName,
+    message: message,
+    timestamp: new Date()
+  };
+  
+  // Broadcast to all players
+  broadcastToAllPlayers('chat', chatMessage);
+  
+  return res.json({ success: true });
+});
