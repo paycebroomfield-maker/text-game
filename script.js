@@ -79,10 +79,6 @@ function getCurrentPlayer() {
   return gameState.players.find(p => p.id === currentPlayerId);
 }
 
-function refreshPlayerGrid() {
-  // removed: player grid is no longer in UI
-}
-
 function refreshStatus() {
   const player = getCurrentPlayer();
   if (!player) {
@@ -390,7 +386,6 @@ function transferItem(item) {
   }, { once: true });
 }
 
-
 function isTransferableItem(item) {
   return item.type !== 'cosmetic';
 }
@@ -583,80 +578,3 @@ function setupEvents() {
 }
 
 setupEvents();
-// Shop item configuration
-const SHOP_ITEMS = {
-  'yellow-theme': { name: 'Yellow Theme', price: 5 },
-  'fancy-font': { name: 'Fancy Font', price: 10 },
-  'wealthy-title': { name: 'Wealthy Title', price: 15 },
-  'wealthy-bundle': { 
-    name: 'Wealthy Bundle', 
-    price: 25,
-    grants: ['yellow-theme', 'fancy-font', 'wealthy-title']
-  }
-};
-
-// Track equipped cosmetics
-let equippedCosmetics = new Set();
-
-// Purchase flow
-let pendingPurchase = null;
-
-function purchaseItem(sku) {
-  const item = SHOP_ITEMS[sku];
-  if (!item) return;
-  
-  pendingPurchase = sku;
-  const confirmText = document.getElementById('confirmText');
-  confirmText.textContent = `Purchase ${item.name} for ${item.price} Plark?`;
-  document.getElementById('confirmModal').style.display = 'flex';
-}
-
-function confirmPurchase() {
-  if (!pendingPurchase) return;
-  
-  const sku = pendingPurchase;
-  const item = SHOP_ITEMS[sku];
-  
-  // Send to server
-  fetch('/api/purchase', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sku })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      alert(`Purchased ${item.name}!`);
-      closeConfirmModal();
-      refreshUI();
-    } else {
-      alert(data.error || 'Purchase failed');
-    }
-  })
-  .catch(err => alert('Error: ' + err.message));
-}
-
-function cancelPurchase() {
-  closeConfirmModal();
-}
-
-function closeConfirmModal() {
-  document.getElementById('confirmModal').style.display = 'none';
-  pendingPurchase = null;
-}
-
-// Cosmetics equip/unequip
-function equipCosmetic(sku) {
-  if (equippedCosmetics.has(sku)) {
-    equippedCosmetics.delete(sku);
-    applyCosmetics();
-  } else {
-    equippedCosmetics.add(sku);
-    applyCosmetics();
-  }
-}
-
-function refreshUI() {
-  // Refresh player data & cosmetics display
-  updateItemsBox();
-}
