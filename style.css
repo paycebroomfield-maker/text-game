@@ -83,11 +83,11 @@ main { display:grid; grid-template-columns: 260px 1fr; gap:0.75rem; }
 .modal-close-btn:hover { color: #e3e6f1; }
 .shop-modal-content { width: min(540px, 95%); }
 .shop-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem; }
-.shop-card { border: 3px solid #ffd700; border-radius: 12px; padding: 0.75rem 0.75rem 0.6rem; cursor: pointer; position: relative; background: #0e1530; transition: background 0.15s; }
-.shop-card:hover { background: #141e40; }
+.shop-card { border: 3px solid #ffd700; border-radius: 12px; padding: 0.75rem 0.75rem 0.6rem; cursor: pointer; position: relative; background: #000000; transition: background 0.15s; }
+.shop-card:hover { background: #1a1a1a; }
 .shop-card-price-badge { position: absolute; top: -11px; right: 8px; background: #ffd700; color: #0d0f1b; font-size: 0.72rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
 .shop-card-title { margin: 0.1rem 0 0.45rem; text-align: center; font-family: Georgia, 'Palatino Linotype', serif; font-style: italic; color: #ffd700; font-size: 1rem; }
-.shop-card-bullets { margin: 0; padding-left: 1.1rem; font-size: 0.82rem; color: #ffffff; background: #000000; padding: 0.5rem; border-radius: 6px; }
+.shop-card-bullets { margin: 0; padding-left: 1.1rem; font-size: 0.82rem; color: #ffffff; padding: 0.5rem; }
 .shop-card-bullets li { margin-bottom: 0.2rem; }
 #shopPurchaseConfirm { background: #27b76b; color: #fff; }
 #shopPurchaseCancel { background: #a33636; color: #fff; }
